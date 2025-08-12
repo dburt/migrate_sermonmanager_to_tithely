@@ -1,0 +1,15 @@
+# Data files
+*.csv
+*.json
+*.xml
+*.rss
+*.txt
+*.bak
+
+# Output directories
+results/
+transcripts/
+stalfreds.tithelysetup.com/
+
+# Exclude the git initialization script itself
+initialize_git.sh

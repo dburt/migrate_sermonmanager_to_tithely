@@ -1,0 +1,517 @@
+    <style>
+        /* Your custom styles or overrides can go here */
+        html {
+          box-sizing: border-box;
+        }
+        *, *:before, *:after {
+          box-sizing: inherit;
+        }
+        body { font-family: 'Roboto', sans-serif; margin: 0; background: #f4f4f4; color: #333; }
+        .header { background: #fff; padding: 20px; text-align: center; border-bottom: 1px solid #ddd; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+        #filters { display: flex; flex-wrap: wrap; gap: 20px; background: #fff; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        .filter-group { flex: 1; min-width: 200px; }
+        .filter-group h4 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; } 
+        .filter-group ul { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
+        .filter-group li a { color: #007bff; text-decoration: none; cursor: pointer; display: block; padding: 5px 0; }
+        .filter-group li a:hover { text-decoration: underline; }
+        .filter-group li a.active-filter-link { font-weight: bold; }
+        #active-filter { text-align: center; margin-bottom: 20px; }
+        #clear-filter-btn { background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; display: none; }
+        .filter-pill { display: inline-block; padding: 5px 10px; background-color: #e0e0e0; border-radius: 15px; margin: 5px; font-size: 0.9em; }
+        .filter-pill-remove { cursor: pointer; font-weight: bold; margin-left: 5px; color: #999; }
+        .filter-pill-remove:hover { color: #333; }
+        .sermon-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .sermon-item { background: #fff; border: 1px solid #ddd; padding: 15px; cursor: pointer; transition: box-shadow 0.3s; border-radius: 5px; }
+        .sermon-item:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .sermon-item h3 { margin-top: 0; color: #0056b3; font-size: 1.1em; }
+        .sermon-item p { font-size: 0.9em; color: #666; margin: 5px 0 0; }
+        .sermon-detail { display: none; background: #fff; padding: 30px; margin-top: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .sermon-detail.active { display: block; }
+        .sermon-detail h2 { margin-top: 0; }
+        .sermon-detail .meta { color: #666; font-size: 0.9em; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px;}
+        .sermon-detail .related-sermons { margin-top: 20px; }
+        .back-button { display: inline-block; margin-bottom: 20px; cursor: pointer; color: #007bff; font-weight: bold; }
+        audio { width: 100%; margin-top: 20px; }
+        #pagination { display: flex; justify-content: center; align-items: center; padding: 20px 0; }
+        #pagination a, #pagination span {
+            display: inline-block;
+            padding: 10px 18px;
+            margin: 0 8px;
+            border-radius: 4px;
+            line-height: 1;
+        }
+        #pagination a {
+            color: #007bff;
+            text-decoration: none;
+            transition: background-color .3s;
+            border: 1px solid #ddd;
+            cursor: pointer;
+        }
+        #pagination span {
+            color: #333;
+            border: 1px solid transparent;
+        }
+        #pagination a.active {
+            background-color: #007bff;
+            color: white;
+            border: 1px solid #007bff;
+        }
+        #pagination a:hover:not(.active) { background-color: #ddd; }
+
+        /* Custom grid for related sermons */
+        .related-sermons .row {
+            display: flex;
+            flex-wrap: wrap;
+            margin: 0 -15px; /* Gutter simulation */
+        }
+
+        .related-sermons .col-md-6 {
+            width: 100%;
+            padding: 0 15px; /* Gutter simulation */
+        }
+
+        @media (min-width: 768px) {
+            .related-sermons .col-md-6 {
+                flex: 0 0 50%;
+                max-width: 50%;
+            }
+        }
+
+        /* Accordion styles for mobile filters */
+        #filters .accordion-toggle { color: inherit; text-decoration: none; }
+        #filters .accordion-content { display: block; }
+
+        @media (max-width: 767px) {
+            #filters { display: block; padding: 0 10px; }
+            .filter-group { border-bottom: 1px solid #eee; }
+            .filter-group:last-child { border-bottom: none; }
+            #filters .accordion-toggle { display: block; padding: 15px 0; pointer-events: auto; position: relative; }
+            #filters .accordion-toggle::after { content: '+'; position: absolute; right: 5px; font-size: 1.5em; line-height: 1; }
+            #filters .filter-group.active .accordion-toggle::after { content: '−'; }
+            #filters .accordion-content { display: none; padding-bottom: 15px; }
+            #filters .filter-group.active .accordion-content { display: block; }
+        }
+    </style>
+</head>
+<body>
+
+    <div style="text-align: center; padding: 10px; background: #f8f9fa; border-bottom: 1px solid #ddd;">
+        <a href="podcast_feed.xml" target="_blank">Podcast Feed</a> |
+        <a href="https://podba.se/validate/?url=https://your-website.com/podcast_feed.xml" target="_blank" title="You will need to replace your-website.com with the actual URL where the feed is hosted.">Validate Feed</a>
+    </div>
+
+    <div class="header" style="background-image:url(https://stalfreds.tithelysetup.com/podcasts/&); background-position: center 20%; min-height: 200px; display: flex; align-items: center; justify-content: center; background-color: #333;">
+        <img alt="St Alfred's Anglican Church" style="max-height: 150px;" src="https://dq5pwpg1q8ru0.cloudfront.net/2025/06/11/03/21/50/a7103ade-1605-4c54-94d9-693663b963a2/St_Alfreds_Logo-white.png" />
+    </div>
+
+    <div class="container">
+        
+        <div id="filters"></div>
+        <div id="active-filter">
+            <span id="current-filter-display"></span>
+            <button id="clear-filter-btn">Clear All Filters</button>
+        </div>
+
+        <div id="sermon-list-container">
+            <div id="sermon-list" class="sermon-list"></div>
+            <div id="pagination"></div>
+        </div>
+        
+        <div id="sermon-detail" class="sermon-detail"></div>
+    </div>
+
+    <script>
+        const sermonList = document.getElementById('sermon-list');
+        const sermonDetail = document.getElementById('sermon-detail');
+        const sermonListContainer = document.getElementById('sermon-list-container');
+        const filtersContainer = document.getElementById('filters');
+        const clearFilterBtn = document.getElementById('clear-filter-btn');
+        const currentFilterDisplay = document.getElementById('current-filter-display');
+        const activeFilterContainer = document.getElementById('active-filter');
+        
+        let allSermons = [];
+        let currentSermons = [];
+        let currentPage = 1;
+        const sermonsPerPage = 12;
+        let searchTerm = '';
+
+        let activeFilters = {
+            sermon_series: new Set(),
+            preacher: new Set(),
+            year: new Set(),
+            sermon_topics: new Set()
+        };
+
+        fetch('sermons.json')
+            .then(response => response.json())
+            .then(data => {
+                allSermons = data.map((sermon, index) => ({...sermon, originalIndex: index}));
+                allSermons.sort((a, b) => new Date(b.post_date_gmt) - new Date(a.post_date_gmt));
+                applyAllFilters();
+            })
+            .catch(error => console.error('Error loading sermons.json:', error));
+
+        clearFilterBtn.addEventListener('click', () => {
+            Object.keys(activeFilters).forEach(key => activeFilters[key].clear());
+            searchTerm = '';
+            applyAllFilters();
+        });
+
+        function applyAllFilters() {
+            // Category Filters
+            let filteredSermons = allSermons.filter(sermon => {
+                const seriesMatch = activeFilters.sermon_series.size === 0 || activeFilters.sermon_series.has(sermon.sermon_series);
+                const preacherMatch = activeFilters.preacher.size === 0 || activeFilters.preacher.has(sermon.preacher);
+                const yearMatch = activeFilters.year.size === 0 || activeFilters.year.has(new Date(sermon.post_date_gmt).getFullYear());
+                const topicsMatch = activeFilters.sermon_topics.size === 0 || [...activeFilters.sermon_topics].every(topic => (sermon.sermon_topics || '').includes(topic));
+                return seriesMatch && preacherMatch && yearMatch && topicsMatch;
+            });
+
+            // Text Filter
+            if (searchTerm.trim() !== '') {
+                const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
+                filteredSermons = filteredSermons.filter(sermon => {
+                    const searchableContent = [
+                        sermon.title,
+                        sermon.sermon_series,
+                        sermon.preacher,
+                        sermon.bible_passage,
+                        sermon.sermon_topics,
+                        sermon.content_text
+                    ].join(' ').toLowerCase();
+                    
+                    return searchWords.every(word => searchableContent.includes(word));
+                });
+            }
+
+            currentSermons = filteredSermons;
+
+            currentPage = 1;
+            setupFilters(currentSermons);
+            displaySermons();
+            displayActiveFilters();
+        }
+
+        function toggleFilter(key, value) {
+            if (activeFilters[key].has(value)) {
+                activeFilters[key].delete(value);
+            } else {
+                activeFilters[key].add(value);
+            }
+            applyAllFilters();
+        }
+
+        function setupFilters(sermonsToFilter) {
+            if (!filtersContainer.innerHTML) {
+                filtersContainer.innerHTML = `
+                    <div class="filter-group">
+                        <h4><a href="#" class="accordion-toggle">Search</a></h4>
+                        <div class="accordion-content">
+                            <input type="text" id="text-filter-input" placeholder="Search sermons..." style="width: 100%; padding: 8px; border: 1px solid #ccc; border-radius: 4px;">
+                        </div>
+                    </div>
+                    <div class="filter-group"><h4><a href="#" class="accordion-toggle">Series</a></h4><div class="accordion-content"><ul id="series-filter"></ul></div></div>
+                    <div class="filter-group"><h4><a href="#" class="accordion-toggle">Preacher</a></h4><div class="accordion-content"><ul id="preacher-filter"></ul></div></div>
+                    <div class="filter-group"><h4><a href="#" class="accordion-toggle">Year</a></h4><div class="accordion-content"><ul id="year-filter"></ul></div></div>
+                    <div class="filter-group"><h4><a href="#" class="accordion-toggle">Topic</a></h4><div class="accordion-content"><ul id="topic-filter"></ul></div></div>
+                `;
+                document.getElementById('text-filter-input').addEventListener('input', (e) => {
+                    searchTerm = e.target.value;
+                    applyAllFilters();
+                });
+                document.querySelectorAll('.accordion-toggle').forEach(toggle => {
+                    toggle.addEventListener('click', (e) => {
+                        if (window.innerWidth < 768) {
+                            e.preventDefault();
+                            e.target.closest('.filter-group').classList.toggle('active');
+                        }
+                    });
+                });
+            }
+            document.getElementById('text-filter-input').value = searchTerm;
+
+            const series = [...new Set(allSermons.map(s => s.sermon_series))].filter(Boolean).sort();
+            const preachers = [...new Set(allSermons.map(s => s.preacher))].filter(Boolean).sort();
+            const years = [...new Set(allSermons.map(s => new Date(s.post_date_gmt).getFullYear()))].filter(y => !isNaN(y)).sort((a, b) => b - a);
+            const topics = [...new Set(allSermons.flatMap(s => s.sermon_topics ? s.sermon_topics.split(',').map(t => t.trim()) : []))].filter(Boolean).sort();
+
+            populateFilterList('series-filter', series, 'sermon_series', sermonsToFilter);
+            populateFilterList('preacher-filter', preachers, 'preacher', sermonsToFilter);
+            populateFilterList('year-filter', years, 'year', sermonsToFilter);
+            populateFilterList('topic-filter', topics, 'sermon_topics', sermonsToFilter);
+        }
+
+        function populateFilterList(elementId, items, filterKey, sermonsToFilter) {
+            const listEl = document.getElementById(elementId);
+            listEl.innerHTML = '';
+            
+            let availableItems;
+            if (filterKey === 'sermon_topics') {
+                availableItems = new Set(sermonsToFilter.flatMap(s => s.sermon_topics ? s.sermon_topics.split(',').map(t => t.trim()) : []));
+            } else {
+                availableItems = new Set(sermonsToFilter.map(s => filterKey === 'year' ? new Date(s.post_date_gmt).getFullYear() : s[filterKey]));
+            }
+
+            items.forEach(item => {
+                if (availableItems.has(item)) {
+                    const listItem = document.createElement('li');
+                    const link = document.createElement('a');
+                    link.textContent = item;
+                    link.onclick = () => toggleFilter(filterKey, item);
+                    if (activeFilters[filterKey].has(item)) {
+                        link.classList.add('active-filter-link');
+                    }
+                    listItem.appendChild(link);
+                    listEl.appendChild(listItem);
+                }
+            });
+        }
+
+        function displayActiveFilters() {
+            currentFilterDisplay.innerHTML = '';
+            let hasFilters = false;
+            Object.keys(activeFilters).forEach(key => {
+                activeFilters[key].forEach(value => {
+                    hasFilters = true;
+                    const pill = document.createElement('span');
+                    pill.className = 'filter-pill';
+                    pill.textContent = value;
+                    const removeBtn = document.createElement('span');
+                    removeBtn.textContent = ' \u2a2f'; // Multiplication X
+                    removeBtn.className = 'filter-pill-remove';
+                    removeBtn.onclick = () => toggleFilter(key, value);
+                    pill.appendChild(removeBtn);
+                    currentFilterDisplay.appendChild(pill);
+                });
+            });
+
+            if (searchTerm.trim() !== '') {
+                hasFilters = true;
+                const pill = document.createElement('span');
+                pill.className = 'filter-pill';
+                pill.textContent = `Search: "${searchTerm}"`;
+                const removeBtn = document.createElement('span');
+                removeBtn.textContent = ' \u2a2f';
+                removeBtn.className = 'filter-pill-remove';
+                removeBtn.onclick = () => {
+                    searchTerm = '';
+                    applyAllFilters();
+                };
+                pill.appendChild(removeBtn);
+                currentFilterDisplay.appendChild(pill);
+            }
+
+            clearFilterBtn.style.display = hasFilters ? 'inline-block' : 'none';
+        }
+
+        function displaySermons() {
+            sermonList.innerHTML = '';
+            const indexOfLastSermon = currentPage * sermonsPerPage;
+            const indexOfFirstSermon = indexOfLastSermon - sermonsPerPage;
+            const sermonsToDisplay = currentSermons.slice(indexOfFirstSermon, indexOfLastSermon);
+
+            sermonsToDisplay.forEach(sermon => {
+                if (sermon && sermon.title) {
+                    const item = document.createElement('div');
+                    item.className = 'sermon-item d-sm-flex';
+                    const postDate = new Date(sermon.post_date_gmt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+
+                    const hasSermonImage = sermon.image_url && sermon.image_url !== 'https://via.placeholder.com/150';
+                    const hasPreacherImage = sermon.preacher_image_url && sermon.preacher_image_url !== 'https://via.placeholder.com/40';
+
+                    let sermonImageHtml = '';
+                    let textColumnClass = 'col-sm-12';
+
+                    if (hasSermonImage) {
+                        sermonImageHtml = `<div class="col-sm-6"><img src="${sermon.image_url}" alt="${sermon.title}" loading="lazy" style="width:100%; height:auto;"/></div>`;
+                        textColumnClass = 'col-sm-6';
+                    }
+
+                    let preacherImageHtml = '';
+                    if (hasPreacherImage) {
+                        preacherImageHtml = `<img alt="${sermon.preacher}" width="40" height="40" class="pull-left mr-2 rounded-circle" loading="lazy" src="${sermon.preacher_image_url}" />`;
+                    }
+
+                    item.innerHTML = `
+                        ${sermonImageHtml}
+                        <div class="${textColumnClass} d-flex flex-column">
+                            <h3 class="h3 mt-0 mb-1">${sermon.title}</h3>
+                            <div class="text-body">${sermon.sermon_series || 'N/A'}</div>
+                            <div class="text-muted">${sermon.bible_passage || 'N/A'}</div>
+                            <div class="d-flex flex-column mt-auto mb-2">
+                                <div class="d-flex align-items-center">
+                                    ${preacherImageHtml}
+                                    <div>
+                                        <div class="text-body line-height-2">${sermon.preacher}</div>
+                                        <div class="text-muted">${postDate}</div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    `;
+                    item.addEventListener('click', () => showSermonDetail(sermon.originalIndex));
+                    sermonList.appendChild(item);
+                }
+            });
+            renderPagination();
+            goBack();
+        }
+
+        function renderPagination() {
+            const paginationContainer = document.getElementById('pagination');
+            paginationContainer.innerHTML = '';
+            const pageCount = Math.ceil(currentSermons.length / sermonsPerPage);
+            
+            if (pageCount <= 1) {
+                paginationContainer.style.display = 'none';
+                return;
+            }
+            paginationContainer.style.display = 'flex';
+
+            const createPageLink = (pageNumber, text) => {
+                const pageLink = document.createElement('a');
+                pageLink.href = '#';
+                pageLink.innerText = text || pageNumber;
+                if (pageNumber === currentPage && !text) {
+                    pageLink.classList.add('active');
+                }
+                
+                const isOutOfBounds = pageNumber < 1 || pageNumber > pageCount;
+                if (isOutOfBounds) {
+                    pageLink.style.visibility = 'hidden';
+                }
+
+                pageLink.addEventListener('click', (e) => {
+                    e.preventDefault();
+                    if (!isOutOfBounds) {
+                        currentPage = pageNumber;
+                        displaySermons();
+                        sermonListContainer.scrollIntoView({ behavior: 'smooth' });
+                    }
+                });
+                return pageLink;
+            };
+
+            const createEllipsis = () => {
+                const ellipsis = document.createElement('span');
+                ellipsis.innerText = '...';
+                return ellipsis;
+            };
+
+            paginationContainer.appendChild(createPageLink(currentPage - 1, 'Prev'));
+
+            let startPage = currentPage - 2;
+            let endPage = currentPage + 2;
+
+            if (startPage <= 1) {
+                endPage = Math.min(5, pageCount);
+                startPage = 1;
+            }
+
+            if (endPage >= pageCount) {
+                startPage = Math.max(1, pageCount - 4);
+                endPage = pageCount;
+            }
+
+            if (startPage > 1) {
+                paginationContainer.appendChild(createPageLink(1));
+                if (startPage > 2) {
+                    paginationContainer.appendChild(createEllipsis());
+                }
+            }
+
+            for (let i = startPage; i <= endPage; i++) {
+                paginationContainer.appendChild(createPageLink(i));
+            }
+
+            if (endPage < pageCount) {
+                if (endPage < pageCount - 1) {
+                    paginationContainer.appendChild(createEllipsis());
+                }
+                paginationContainer.appendChild(createPageLink(pageCount));
+            }
+
+            paginationContainer.appendChild(createPageLink(currentPage + 1, 'Next'));
+        }
+        
+        function showSermonDetail(originalIndex) {
+            const sermon = allSermons.find(s => s.originalIndex === originalIndex);
+            sermonListContainer.style.display = 'none';
+            filtersContainer.style.display = 'none';
+            activeFilterContainer.style.display = 'none';
+
+            const postDate = new Date(sermon.post_date_gmt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+            
+            const relatedBySeries = allSermons.filter(s => s.sermon_series === sermon.sermon_series && s.originalIndex !== sermon.originalIndex);
+            const relatedByPreacher = allSermons.filter(s => s.preacher === sermon.preacher && s.originalIndex !== sermon.originalIndex);
+
+            const imageUrl = sermon.image_url;
+            const preacherImageUrl = sermon.preacher_image_url;
+
+            const hasSermonImage = imageUrl && imageUrl !== 'https://via.placeholder.com/300';
+            const hasPreacherImage = preacherImageUrl && preacherImageUrl !== 'https://via.placeholder.com/40';
+
+            let sermonImageHtml = '';
+            let detailTextColumnClass = 'col-sm-12';
+
+            if (hasSermonImage) {
+                sermonImageHtml = `<div class="col-sm-6"><img src="${imageUrl}" alt="${sermon.title}" loading="lazy" style="width:100%; height:auto;"/></div>`;
+                detailTextColumnClass = 'col-sm-6';
+            }
+
+            let preacherImageHtml = '';
+            if (hasPreacherImage) {
+                preacherImageHtml = `<img alt="${sermon.preacher}" width="40" height="40" class="pull-left mr-2 rounded-circle" loading="lazy" src="${preacherImageUrl}" />`;
+            }
+
+            const relatedBySeriesHtml = relatedBySeries.length > 0 ? `<div class="col-md-6"><h4>More from this series:</h4><ul>${relatedBySeries.map(s => `<li><a href="#" onclick="showSermonDetail(${s.originalIndex})">${s.title}</a></li>`).join('')}</ul></div>` : '';
+            const relatedByPreacherHtml = relatedByPreacher.length > 0 ? `<div class="col-md-6"><h4>More by this preacher:</h4><ul>${relatedByPreacher.map(s => `<li><a href="#" onclick="showSermonDetail(${s.originalIndex})">${s.title}</a></li>`).join('')}</ul></div>` : '';
+
+            sermonDetail.innerHTML = `
+                <div class="back-button" onclick="displaySermons()">&larr; Back to Sermons</div>
+                <div class="sermon-detail-content row">
+                    ${sermonImageHtml}
+                    <div class="${detailTextColumnClass} d-flex flex-column">
+                        <h2>${sermon.title}</h2>
+                        <div class="meta">
+                            <strong>Date:</strong> ${postDate} <br>
+                            <strong>Series:</strong> ${sermon.sermon_series || 'N/A'}
+                        </div>
+                        <div class="d-flex align-items-center mb-3">
+                            ${preacherImageHtml}
+                            <div>
+                                <div class="text-body line-height-2">${sermon.preacher || 'N/A'}</div>
+                            </div>
+                        </div>
+                        <div class="content">
+                            <p><strong>Bible Passage:</strong> ${sermon.bible_passage ? `<a href="https://ref.ly/${encodeURIComponent(sermon.bible_passage)};niv?t=biblia" target="_blank" rel="noopener noreferrer">${sermon.bible_passage}</a>` : 'N/A'}</p>
+                            <p><strong>Topics:</strong> ${sermon.sermon_topics || 'N/A'}</p>
+                            ${sermon.audio_url ? `<audio controls src="${sermon.audio_url}"></audio>` : ''}
+                        </div>
+                    </div>
+                </div>
+                <hr>
+                <div class="sermon-body">${sermon.content_text || ''}</div>
+                <div class="related-sermons">
+                    <div class="row">
+                        ${relatedBySeriesHtml}
+                        ${relatedByPreacherHtml}
+                    </div>
+                </div>
+            `;
+            sermonDetail.classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function goBack() {
+            sermonDetail.classList.remove('active');
+            sermonDetail.innerHTML = '';
+            sermonListContainer.style.display = 'grid';
+            filtersContainer.style.display = 'flex';
+            activeFilterContainer.style.display = 'block';
+        }
+    </script>
+
+</body>
+</html>

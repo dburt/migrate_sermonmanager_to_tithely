@@ -1,0 +1,179 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Sermons</title>
+    <style>
+        body { font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif, "Apple Color Emoji", "Segoe UI Emoji", "Segoe UI Symbol"; margin: 0; background: #f4f4f4; color: #333; }
+        .header { background: #fff; padding: 20px; text-align: center; border-bottom: 1px solid #ddd; }
+        .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
+        #file-input-wrapper { background: #fff; padding: 20px; border-radius: 5px; margin-bottom: 20px; text-align: center; }
+        #filters { display: flex; flex-wrap: wrap; gap: 20px; background: #fff; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        .filter-group { flex: 1; min-width: 200px; }
+        .filter-group h4 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; }
+        .filter-group ul { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
+        .filter-group li a { color: #007bff; text-decoration: none; cursor: pointer; display: block; padding: 5px 0; }
+        .filter-group li a:hover { text-decoration: underline; }
+        #active-filter { text-align: center; margin-bottom: 20px; }
+        #clear-filter-btn { background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; display: none; }
+        .sermon-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
+        .sermon-item { background: #fff; border: 1px solid #ddd; padding: 15px; cursor: pointer; transition: box-shadow 0.3s; border-radius: 5px; }
+        .sermon-item:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
+        .sermon-item h3 { margin-top: 0; color: #0056b3; font-size: 1.1em; }
+        .sermon-item p { font-size: 0.9em; color: #666; margin: 5px 0 0; }
+        .sermon-detail { display: none; background: #fff; padding: 30px; margin-top: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .sermon-detail.active { display: block; }
+        .sermon-detail h2 { margin-top: 0; }
+        .sermon-detail .meta { color: #666; font-size: 0.9em; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px;}
+        .sermon-detail .related-sermons { margin-top: 20px; }
+        .back-button { display: inline-block; margin-bottom: 20px; cursor: pointer; color: #007bff; font-weight: bold; }
+        audio { width: 100%; margin-top: 20px; }
+    </style>
+</head>
+<body>
+
+    <div class="header">
+        <h1>Sermons</h1>
+    </div>
+
+    <div class="container">
+        
+        <div id="filters"></div>
+        <div id="active-filter">
+            <button id="clear-filter-btn">Clear Filter</button>
+        </div>
+
+        <div id="sermon-list-container">
+            <div id="sermon-list" class="sermon-list"></div>
+        </div>
+        
+        <div id="sermon-detail" class="sermon-detail"></div>
+    </div>
+
+    <script>
+        const sermonList = document.getElementById('sermon-list');
+        const sermonDetail = document.getElementById('sermon-detail');
+        const sermonListContainer = document.getElementById('sermon-list-container');
+        const filtersContainer = document.getElementById('filters');
+        const clearFilterBtn = document.getElementById('clear-filter-btn');
+        let allSermons = [];
+        let currentSermons = [];
+
+        // Load sermons from JSON file
+        fetch('sermons.json') // Assuming sermons.json is in the same directory
+            .then(response => response.json())
+            .then(data => {
+                allSermons = data.map((sermon, index) => ({...sermon, originalIndex: index}));
+                currentSermons = [...allSermons];
+                setupFilters();
+                displaySermons();
+            })
+            .catch(error => console.error('Error loading sermons.json:', error));
+
+        clearFilterBtn.addEventListener('click', () => {
+            currentSermons = [...allSermons];
+            displaySermons();
+            clearFilterBtn.style.display = 'none';
+        });
+
+        function setupFilters() {
+            const series = [...new Set(allSermons.map(s => s.sermon_series))].filter(Boolean).sort();
+            const preachers = [...new Set(allSermons.map(s => s.preacher))].filter(Boolean).sort();
+            const years = [...new Set(allSermons.map(s => new Date(s.post_date_gmt).getFullYear()))].filter(y => !isNaN(y)).sort((a, b) => b - a);
+
+            filtersContainer.innerHTML = `
+                <div class="filter-group"><h4>Series</h4><ul id="series-filter"></ul></div>
+                <div class="filter-group"><h4>Preacher</h4><ul id="preacher-filter"></ul></div>
+                <div class="filter-group"><h4>Year</h4><ul id="year-filter"></ul></div>
+            `;
+
+            populateFilterList('series-filter', series, 'sermon_series');
+            populateFilterList('preacher-filter', preachers, 'preacher');
+            populateFilterList('year-filter', years, 'year');
+        }
+
+        function populateFilterList(elementId, items, filterKey) {
+            const listEl = document.getElementById(elementId);
+            items.forEach(item => {
+                const listItem = document.createElement('li');
+                const link = document.createElement('a');
+                link.textContent = item;
+                link.onclick = () => applyFilter(filterKey, item);
+                listItem.appendChild(link);
+                listEl.appendChild(listItem);
+            });
+        }
+
+        function applyFilter(key, value) {
+            if (key === 'year') {
+                currentSermons = allSermons.filter(s => new Date(s.post_date_gmt).getFullYear() === value);
+            } else {
+                currentSermons = allSermons.filter(s => s[key] === value);
+            }
+            displaySermons();
+            clearFilterBtn.style.display = 'inline-block';
+            window.scrollTo(0, 0);
+        }
+
+        function displaySermons() {
+            sermonList.innerHTML = '';
+            currentSermons.forEach(sermon => {
+                if (sermon && sermon.title) {
+                    const item = document.createElement('div');
+                    item.className = 'sermon-item';
+                    const postDate = new Date(sermon.post_date_gmt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+                    item.innerHTML = `<h3>${sermon.title}</h3><p>${postDate}</p><p><em>${sermon.preacher}</em></p>`;
+                    item.addEventListener('click', () => showSermonDetail(sermon.originalIndex));
+                    sermonList.appendChild(item);
+                }
+            });
+            goBack();
+        }
+        
+        function showSermonDetail(originalIndex) {
+            const sermon = allSermons.find(s => s.originalIndex === originalIndex);
+            sermonListContainer.style.display = 'none';
+            filtersContainer.style.display = 'none';
+            clearFilterBtn.style.display = 'none';
+
+            const postDate = new Date(sermon.post_date_gmt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+            
+            // Find related sermons
+            const relatedBySeries = allSermons.filter(s => s.sermon_series === sermon.sermon_series && s.originalIndex !== sermon.originalIndex);
+            const relatedByPreacher = allSermons.filter(s => s.preacher === sermon.preacher && s.originalIndex !== sermon.originalIndex);
+
+            sermonDetail.innerHTML = `
+                <div class="back-button" onclick="displaySermons()">&larr; Back to Sermons</div>
+                <h2>${sermon.title}</h2>
+                <div class="meta">
+                    <strong>Date:</strong> ${postDate} <br>
+                    <strong>Preacher:</strong> ${sermon.preacher || 'N/A'} <br>
+                    <strong>Series:</strong> ${sermon.sermon_series || 'N/A'}
+                </div>
+                <div class="content">
+                    <p><strong>Bible Passage:</strong> ${sermon.bible_passage || 'N/A'}</p>
+                    <p><strong>Topics:</strong> ${sermon.sermon_topics || 'N/A'}</p>
+                    ${sermon.audio_url ? `<audio controls src="${sermon.audio_url}"></audio>` : ''}
+                </div>
+                <div class="related-sermons">
+                    ${relatedBySeries.length > 0 ? `<h4>More from this series:</h4><ul>${relatedBySeries.map(s => `<li><a href="#" onclick="showSermonDetail(${s.originalIndex})">${s.title}</a></li>`).join('')}</ul>` : ''}
+                    ${relatedByPreacher.length > 0 ? `<h4>More by this preacher:</h4><ul>${relatedByPreacher.map(s => `<li><a href="#" onclick="showSermonDetail(${s.originalIndex})">${s.title}</a></li>`).join('')}</ul>` : ''}
+                </div>
+                <hr>
+                <div class="sermon-body">${sermon.content_html || ''}</div>
+            `;
+            sermonDetail.classList.add('active');
+            window.scrollTo(0, 0);
+        }
+
+        function goBack() {
+            sermonDetail.classList.remove('active');
+            sermonDetail.innerHTML = '';
+            sermonListContainer.style.display = 'grid';
+            filtersContainer.style.display = 'flex';
+        }
+    </script>
+
+</body>
+</html>

@@ -83,7 +83,7 @@ def generate_rss_feed(json_filepath, rss_filepath):
         {enclosure}
         <description><![CDATA[{description}]]></description>
         <itunes:author>{preacher}</itunes:author>
-        <itunes:subtitle>{sermon_series}</itunes:subtitle>
+        <itunes:subtitle>{sermon_series} | {preacher} | {bible_passage}</itunes:subtitle>
         <itunes:summary><![CDATA[{summary}]]></itunes:summary>
         {item_image}
         <itunes:explicit>false</itunes:explicit>

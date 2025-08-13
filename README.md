@@ -17,7 +17,7 @@ The main goal is to take a raw CSV export of sermon data, clean it, enrich it, a
 1.  A filterable, searchable sermon browser (`stalfreds-sermons-styled.html`).
 2.  A podcast-compliant RSS feed (`podcast_feed.xml`).
 
-Additionally, there are scripts to generate audio transcriptions using OpenAI's Whisper.
+Additionally, there are scripts to generate audio transcriptions using Faster Whisper.
 
 ## Data Pipeline
 
@@ -101,13 +101,11 @@ This is the main script to run the entire data pipeline. It cleans the source CS
 **`transcribe.py`**
 
 *   **Purpose:** Transcribes audio files listed in a sermons JSON file using OpenAI's Whisper. It can process the entire set, or a random sample for evaluation.
-*   **Dependencies:** Requires `openai-whisper` and `ffmpeg`.
+*   **Dependencies:** Requires `faster-whisper`.
     ```bash
-    # 1. Install ffmpeg (for Debian/Ubuntu)
-    sudo apt update && sudo apt install ffmpeg
+    mise install && uv sync
 
-    # 2. Install whisper
-    pip install -U openai-whisper
+*   **Note on Performance:** For CPU-only transcription, `faster-whisper` will automatically utilize available CPU cores. For GPU acceleration, ensure CUDA is properly configured and `faster-whisper` is installed with GPU support (e.g., `pip install faster-whisper[cuda-cu118]`).
     ```
 *   **Usage:**
     ```bash

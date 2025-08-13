@@ -3,8 +3,8 @@ import sys
 import re
 import os
 import argparse
-import subprocess
 import random
+from faster_whisper import WhisperModel
 
 def sanitize_filename(title):
     """Sanitizes a string to be a valid filename."""
@@ -86,27 +86,25 @@ def main(json_filepath, output_dir, sample_size, title_filter):
 
                     # --- Transcribe the local audio file ---
                     print("  Starting transcription...")
-                    # TODO: Improve accuracy by providing an initial prompt with common/difficult words.
-                    # Include the bible passage or a summary of it and key words from it.
-                    # Example: --initial_prompt "St Alfred's, Pfitzner, Kuan, Sanhedrin, Sadducees"
-                    whisper_command = [
-                        "whisper",
-                        temp_audio_path,
-                        "--model", "medium",
-                        "--language", "English",
-                        "--output_dir", output_dir,
-                        "--output_format", "txt"
-                    ]
-                    
-                    result = subprocess.run(whisper_command, capture_output=True, text=True, check=False)
-                    
-                    if result.stderr:
-                        print(result.stderr)
-                    
-                    if result.returncode == 0:
+                    try:
+                        # Initialize Faster Whisper model (CPU optimized)
+                        model = WhisperModel("medium", device="cpu", compute_type="int8")
+
+                        # Transcribe the audio file
+                        segments, info = model.transcribe(temp_audio_path, beam_size=5, language="en")
+
+                        transcript_content = ""
+                        for segment in segments:
+                            transcript_content += segment.text + "\n"
+
+                        # Save the transcript to a file
+                        with open(transcript_path, "w", encoding="utf-8") as f:
+                            f.write(transcript_content)
+
                         print(f"--> Transcription successful for: {title}")
-                    else:
+                    except Exception as e:
                         print(f"--> Transcription FAILED for: {title}", file=sys.stderr)
+                        print(f"    Error: {e}", file=sys.stderr)
 
                 except subprocess.CalledProcessError as e:
                     print(f"--> Download FAILED for URL: {audio_url}", file=sys.stderr)

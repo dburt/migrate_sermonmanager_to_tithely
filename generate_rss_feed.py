@@ -1,3 +1,5 @@
+#!/usr/bin/env python
+
 import json
 from datetime import datetime, timezone
 import html
@@ -58,7 +60,7 @@ def generate_rss_feed(json_filepath, rss_filepath):
             except ValueError:
                 pub_date = ""
 
-        description = f"In this sermon, {preacher} speaks on the theme of {title} as part of the series {sermon_series}. The Bible reading is {bible_passage}. {text_content}"
+        description = f"In this sermon, {preacher} speaks on the theme of {title} as part of the series {sermon_series}. The Bible reading is {bible_passage}. {content_text}"
         summary = description
 
         enclosure = ""

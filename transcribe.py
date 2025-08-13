@@ -64,6 +64,15 @@ def main(json_filepath, output_dir, sample_size, title_filter):
             print(f"\nProcessing sermon {i}/{total_sermons}: {title}")
 
             if audio_url and title:
+                # Construct a more informative initial prompt for the current sermon
+                current_sermon_prompt = f"The sermon title is: {title}."
+                if sermon.get('series'):
+                    current_sermon_prompt += f" Sermon series: {sermon['series']}."
+                if sermon.get('preacher'):
+                    current_sermon_prompt += f" Preacher: {sermon['preacher']}."
+                if sermon.get('bible_passage'):
+                    current_sermon_prompt += f" Bible passage: {sermon['bible_passage']}."
+
                 # --- Create a descriptive filename ---
                 clean_title = sanitize_filename(title)
                 audio_ext = os.path.splitext(audio_url.split("?")[0])[-1]
@@ -91,7 +100,7 @@ def main(json_filepath, output_dir, sample_size, title_filter):
                         model = WhisperModel("medium", device="cpu", compute_type="int8")
 
                         # Transcribe the audio file
-                        segments, info = model.transcribe(temp_audio_path, beam_size=5, language="en")
+                        segments, info = model.transcribe(temp_audio_path, beam_size=5, language="en", initial_prompt=initial_prompt)
 
                         transcript_content = ""
                         for segment in segments:

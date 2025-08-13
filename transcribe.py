@@ -87,6 +87,7 @@ def main(json_filepath, output_dir, sample_size, title_filter):
                     # --- Transcribe the local audio file ---
                     print("  Starting transcription...")
                     # TODO: Improve accuracy by providing an initial prompt with common/difficult words.
+                    # Include the bible passage or a summary of it and key words from it.
                     # Example: --initial_prompt "St Alfred's, Pfitzner, Kuan, Sanhedrin, Sadducees"
                     whisper_command = [
                         "whisper",

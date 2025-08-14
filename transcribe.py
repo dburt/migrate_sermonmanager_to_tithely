@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env -S uv run python
 
 import json
 import sys
@@ -6,6 +6,7 @@ import re
 import os
 import argparse
 import random
+import subprocess
 from faster_whisper import WhisperModel
 
 def sanitize_filename(title):
@@ -102,7 +103,7 @@ def main(json_filepath, output_dir, sample_size, title_filter):
                         model = WhisperModel("medium", device="cpu", compute_type="int8")
 
                         # Transcribe the audio file
-                        segments, info = model.transcribe(temp_audio_path, beam_size=5, language="en", initial_prompt=initial_prompt)
+                        segments, info = model.transcribe(temp_audio_path, beam_size=5, language="en", initial_prompt=current_sermon_prompt)
 
                         transcript_content = ""
                         for segment in segments:

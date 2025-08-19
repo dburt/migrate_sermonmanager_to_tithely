@@ -1,3 +1,4 @@
+#!/usr/bin/env -S uv run --script
 import csv
 
 def analyze_standalone_sermons(file_path):

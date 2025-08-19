@@ -1,3 +1,4 @@
+#!/usr/bin/env -S uv run --script
 
 import xml.etree.ElementTree as ET
 import uuid

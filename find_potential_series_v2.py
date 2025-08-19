@@ -1,3 +1,4 @@
+#!/usr/bin/env -S uv run --script
 import csv
 from collections import defaultdict
 from datetime import datetime, timedelta

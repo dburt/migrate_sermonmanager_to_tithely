@@ -1,3 +1,4 @@
+#!/usr/bin/env -S uv run --script
 import pandas as pd
 import re
 import requests

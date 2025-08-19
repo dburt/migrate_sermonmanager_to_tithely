@@ -1,3 +1,4 @@
+#!/usr/bin/env -S uv run --script
 print(default_api.web_fetch(prompt='Fetch the content of the URL: https://stalfreds.org/sermons/maturity-in-conflict-s10/?utm_source=rss&utm_medium=rss&utm_campaign=maturity-in-conflict-s10'))
 print(default_api.web_fetch(prompt='Fetch the content of the URL: https://stalfreds.org/sermons/maturity-in-wisdom-s6/?utm_source=rss&utm_medium=rss&utm_campaign=maturity-in-wisdom-s6'))
 print(default_api.web_fetch(prompt='Fetch the content of the URL: https://stalfreds.org/sermons/maturity-in-speech-s10/?utm_source=rss&utm_medium=rss&utm_campaign=maturity-in-speech-s10'))

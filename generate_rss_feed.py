@@ -1,4 +1,4 @@
-#!/usr/bin/env python
+#!/usr/bin/env -S uv run --script
 
 import json
 from datetime import datetime, timezone
@@ -42,6 +42,8 @@ def generate_rss_feed(json_filepath, rss_filepath):
 
     # RSS Feed Items
     for sermon in sermons:
+        continue if not sermon.get('status') == 'publish'
+
         title = html.escape(sermon.get('title', 'No Title'))
         permalink = sermon.get('permalink', '#')
         post_date_gmt = sermon.get('post_date_gmt')

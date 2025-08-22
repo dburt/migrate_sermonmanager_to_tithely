@@ -28,18 +28,17 @@ HEADLESS_MODE = False
 
 def create_sermon_slug(title: str, date_str: str) -> str:
     """
-    Creates a URL-friendly slug from a sermon title and date string.
-    Example: ("Maturity in Wisdom", "2025-07-20 08:00:12") -> "2025-07-20-maturity-in-wisdom"
+    Creates a URL-friendly slug from a sermon title and date string that matches Tithely's format.
     """
-    # 1. Extract just the YYYY-MM-DD part of the date
     date_part = date_str.split(" ")[0]
-
-    # 2. "Slugify" the title
     slug = title.lower()
-    slug = slug.replace(" ", "-")  # Replace spaces with hyphens
-    slug = re.sub(r'[^a-z0-9-]', '', slug) # Remove any non-alphanumeric characters except hyphens
-
-    return f"{date_part}-{slug}"
+    # slug = slug.replace("'", "")
+    slug = re.sub(r'[^a-z0-9]+', '-', slug)  # Replace non-alphanumeric with hyphen
+    slug = slug.strip('-')
+    full_slug = f"{date_part}-{slug}"
+    truncated_slug = full_slug[:60]
+    final_slug = truncated_slug.strip('-')
+    return final_slug
 
 def login(page: Page, email: str, password: str):
     """Navigates to the login page and logs in with provided credentials."""
@@ -71,10 +70,13 @@ def find_and_open_sermon_editor(page: Page, sermon_data: dict) -> bool:
     print(f"Current time: {page.evaluate("new Date().toLocaleString()")}")
     print(f"Searching for link containing: '{sermon_slug_to_find}'")
 
-    # This loop will continue as long as there are "Next" pages to click
+    start_url = page.url
+    print(f"Starting URL: {start_url}")
+
+    ## This loop will continue as long as there are "Next" pages to click
     # while True:
-    # This loop will try to find the sermon on the current page or the next one
-    for _ in range(2):
+    # This loop will try to find the sermon on the current or next two pages
+    for _ in range(3):
 
         edit_button_locator = page.locator(f"a[title='Edit'][href*='{sermon_slug_to_find}']")
 
@@ -86,7 +88,7 @@ def find_and_open_sermon_editor(page: Page, sermon_data: dict) -> bool:
 
         # If not found, look for the "Next" button
         print("Sermon not found on this page. Looking for 'Next' button...")
-        next_page_button = page.locator("a[rel='next']")
+        next_page_button = page.get_by_role("link", name="→")
 
         if next_page_button.is_enabled():
             print("Navigating to next page...")
@@ -95,8 +97,18 @@ def find_and_open_sermon_editor(page: Page, sermon_data: dict) -> bool:
             page.wait_for_load_state("domcontentloaded")
         else:
             # We've checked the last page and didn't find it.
-            print(f"❌ ERROR: Reached page limit and could not find sermon '{title}'.")
+            print(f"❌ ERROR: Reached last page and could not find sermon '{title}'.")
+            # return to starting URL
+            print(f"Returning to starting URL: {start_url}")
+            page.goto(start_url)
             return False # Failure
+    
+    # If we reach here, it means we didn't find the sermon in the first 3 pages
+    print(f"❌ ERROR: Could not find sermon '{title}' after checking 3 pages.")
+    # return to starting URL
+    print(f"Returning to starting URL: {start_url}")
+    page.goto(start_url)
+    return False # Failure
 
 # (This function just fills the form, assuming the modal is open)
 def fill_and_submit_sermon_form(page: Page, sermon_data: dict):
@@ -161,7 +173,7 @@ def main():
     sermons_to_update.reverse()
     print(f"Loaded and reversed {len(sermons_to_update)} sermons for processing.")
 
-    sermons_to_update = sermons_to_update[:30] # DEBUG: Limit to first 3 sermons for testing
+    # sermons_to_update = sermons_to_update[3:30] # DEBUG: limit to first 30 sermons starting with the 4th sermon to skip the first 3
 
     with sync_playwright() as p:
         browser = p.chromium.launch(
@@ -201,6 +213,9 @@ def main():
                     print(f"❌ An error occurred while processing '{sermon.get('title', 'Unknown Sermon')}': {e}")
                     print("Reloading the page to recover...")
                     page.reload()
+                    # print("Going back to previous page...")
+                    # page.go_back()
+                    print(f"Current URL: {page.url}")
 
             print("\n🎉 All sermons have been processed.")
 

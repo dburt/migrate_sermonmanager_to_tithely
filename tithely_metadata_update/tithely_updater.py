@@ -6,6 +6,9 @@
 import json
 import os
 import re
+import sys
+import pandas as pd
+from datetime import datetime
 from playwright.sync_api import sync_playwright, Page, expect
 
 # --- CONFIGURATION ---
@@ -26,11 +29,11 @@ BRAVE_EXECUTABLE_PATH = "/usr/bin/brave-browser"
 HEADLESS_MODE = False
 # ---------------------
 
-def create_sermon_slug(title: str, date_str: str) -> str:
+def create_sermon_slug(title: str, dt: datetime) -> str:
     """
     Creates a URL-friendly slug from a sermon title and date string that matches Tithely's format.
     """
-    date_part = date_str.split(" ")[0]
+    date_part = dt.strftime('%Y-%m-%d')
     slug = title.lower()
     # slug = slug.replace("'", "")
     slug = re.sub(r'[^a-z0-9]+', '-', slug)  # Replace non-alphanumeric with hyphen
@@ -63,9 +66,9 @@ def find_and_open_sermon_editor(page: Page, sermon_data: dict) -> bool:
     Returns True if the edit button was found and clicked, False otherwise.
     """
     title = sermon_data.get("title")
-    date_str = sermon_data.get("post_date_gmt")
-    sermon_slug_to_find = create_sermon_slug(title, date_str)
-
+    dt = pd.to_datetime(sermon_data.get("post_date_gmt"), utc=True).tz_convert('Australia/Melbourne')
+    sermon_slug_to_find = create_sermon_slug(title, dt)
+    
     print(f"\n--- Processing Sermon: {title} ---")
     print(f"Current time: {page.evaluate("new Date().toLocaleString()")}")
     print(f"Searching for link containing: '{sermon_slug_to_find}'")
@@ -78,7 +81,7 @@ def find_and_open_sermon_editor(page: Page, sermon_data: dict) -> bool:
     # This loop will try to find the sermon on the current or next two pages
     for _ in range(3):
 
-        edit_button_locator = page.locator(f"a[title='Edit'][href*='{sermon_slug_to_find}']")
+        edit_button_locator = page.locator(f"a[title='Edit'][href*='{sermon_slug_to_find}']").first
 
         # Check if the sermon is on the CURRENT page. Use a short timeout.
         if edit_button_locator.is_visible(timeout=2000): # Short wait, just to check
@@ -120,9 +123,11 @@ def fill_and_submit_sermon_form(page: Page, sermon_data: dict):
 
     form_locator.locator("#sermon_title").fill(sermon_data.get("title", ""))
     form_locator.locator("#sermon_subtitle").fill("")
-    sermon_date = sermon_data.get("post_date_gmt", "").split(" ")[0]
-    if sermon_date:
-        form_locator.locator("#sermon_sermon_date").fill(sermon_date)
+
+    # Assume date is already correct and skip
+    # sermon_date = sermon_data.get("post_date_gmt", "").split(" ")[0]
+    # if sermon_date:
+    #     form_locator.locator("#sermon_sermon_date").fill(sermon_date)
 
     speaker_name = sermon_data.get("preacher", "Guest Speaker")
     speaker_select = form_locator.locator("#sermon_speaker_id")
@@ -153,9 +158,12 @@ def fill_and_submit_sermon_form(page: Page, sermon_data: dict):
     save_button.click()
 
     # Verify Success
-    expect(form_locator).to_be_hidden(timeout=15000)
-    print(f"✅ Successfully updated: {sermon_data.get('title')}")
-
+    try:
+        expect(page.locator("text=Updated Sermon")).to_be_visible(timeout=20000)
+        print(f"✅ Successfully updated: {sermon_data.get('title')}")
+    except Exception:
+        print("❌ ERROR: Could not confirm successful update. Check if the form was submitted correctly.")
+        return
 
 def main():
     """Main function to orchestrate the browser automation."""

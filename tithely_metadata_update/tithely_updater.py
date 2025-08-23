@@ -170,7 +170,7 @@ def fill_and_submit_sermon_form(page: Page, sermon_data: dict):
     speaker_name = sermon_data.get("preacher", "Guest Speaker")
     speaker_select = form_locator.locator("#sermon_speaker_id")
     try:
-        speaker_select.select_option(label=speaker_name)
+        speaker_select.select_option(label=speaker_name, timeout=2000)
     except Exception:
         speaker_select.select_option(label="Guest Speaker")
 
@@ -181,7 +181,7 @@ def fill_and_submit_sermon_form(page: Page, sermon_data: dict):
     series_select = form_locator.locator("#sermon_series_id") # <-- Assuming this ID
     if series_select:
         try:
-            series_select.select_option(label=series_name)
+            series_select.select_option(label=series_name, timeout=2000)
             print(f"Selected existing series: {series_name}")
         except Exception:
             print(f"Series '{series_name}' not found. Creating new one.")
@@ -209,6 +209,8 @@ def main():
         print("❌ ERROR: Please provide TITHELY_EMAIL and TITHELY_PASSWORD as environment variables.")
         return
 
+    index_only = len(sys.argv) > 1 and sys.argv[1] == '--index-only'
+
     with sync_playwright() as p:
         browser = p.chromium.launch(
             executable_path=BRAVE_EXECUTABLE_PATH,
@@ -228,13 +230,15 @@ def main():
             page.goto(podcast_list_url)
             expect(page.locator("h1:has-text('Test Sermon Import')")).to_be_visible()
 
-            # Step 3: Create an index of all sermons if it doesn't exist
-            if not os.path.exists(SERMON_INDEX_PATH):
-                print("Sermon index not found. Creating it now...")
+            # Step 3: Create an index of all sermons
+            if index_only or not os.path.exists(SERMON_INDEX_PATH):
+                print("Creating sermon index...")
                 sermon_index = create_sermon_index(page)
                 with open(SERMON_INDEX_PATH, "w") as index_file:
                     json.dump(sermon_index, index_file, indent=4)
                 print(f"Found {len(sermon_index)} sermons in the index.")
+                if index_only:
+                    exit(0)
             else:
                 print("Sermon index found. Skipping index creation.")
 

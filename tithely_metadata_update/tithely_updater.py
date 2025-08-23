@@ -20,6 +20,7 @@ load_dotenv()
 TITHELY_EMAIL = os.environ.get("TITHELY_EMAIL")
 TITHELY_PASSWORD = os.environ.get("TITHELY_PASSWORD")
 JSON_FILE_PATH = "sermons.json"  # The path to your sermon data file
+SERMON_INDEX_PATH = "sermon_index.json" # The path to the sermon index file
 BASE_URL = "https://stalfreds.tithelysetup.com"
 
 # --- Find your Brave path ---
@@ -61,61 +62,6 @@ def login(page: Page, email: str, password: str):
     expect(page.locator("text=You are now logged in")).to_be_visible(timeout=15000)
     print("Login successful!")
 
-# Search for a sermon by its slug and open the editor
-def find_and_open_sermon_editor(page: Page, sermon_data: dict) -> bool:
-    """
-    Searches for a sermon's edit button, clicking through pagination if needed.
-    Returns True if the edit button was found and clicked, False otherwise.
-    """
-    title = sermon_data.get("title")
-    dt = pd.to_datetime(sermon_data.get("post_date_gmt"), utc=True).tz_convert('Australia/Melbourne')
-    sermon_slug_to_find = create_sermon_slug(title, dt)
-    
-    print(f"\n--- Processing Sermon: {title} ---")
-    print(f"Current time: {page.evaluate("new Date().toLocaleString()")}")
-    print(f"Searching for link containing: '{sermon_slug_to_find}'")
-
-    start_url = page.url
-    print(f"Starting URL: {start_url}")
-
-    ## This loop will continue as long as there are "Next" pages to click
-    # while True:
-    # This loop will try to find the sermon on the current or next two pages
-    for _ in range(3):
-
-        edit_button_locator = page.locator(f"a[title='Edit'][href*='{sermon_slug_to_find}']").first
-
-        # Check if the sermon is on the CURRENT page. Use a short timeout.
-        if edit_button_locator.is_visible(timeout=2000): # Short wait, just to check
-            print("Found sermon on this page. Clicking 'Edit'...")
-            edit_button_locator.click()
-            return True # Success!
-
-        # If not found, look for the "Next" button
-        print("Sermon not found on this page. Looking for 'Next' button...")
-        next_page_button = page.get_by_role("link", name="→")
-
-        if next_page_button.is_enabled():
-            print("Navigating to next page...")
-            next_page_button.click()
-            # Wait for the page to navigate before the loop continues
-            page.wait_for_load_state("domcontentloaded")
-        else:
-            # We've checked the last page and didn't find it.
-            print(f"❌ ERROR: Reached last page and could not find sermon '{title}'.")
-            # return to starting URL
-            print(f"Returning to starting URL: {start_url}")
-            page.goto(start_url)
-            return False # Failure
-    
-    # If we reach here, it means we didn't find the sermon in the first 3 pages
-    print(f"❌ ERROR: Could not find sermon '{title}' after checking 3 pages.")
-    # return to starting URL
-    print(f"Returning to starting URL: {start_url}")
-    page.goto(start_url)
-    return False # Failure
-
-# Go through all pages and create an index
 def create_sermon_index(page: Page):
     """
     Creates an index of all sermons with their slugs and page numbers.
@@ -169,21 +115,57 @@ def create_sermon_index(page: Page):
 
     return sermon_index
 
-# Fill the form, assuming the modal is open
+def compare_and_group_sermons(sermons_json_path: str, sermon_index_path: str) -> dict:
+    """
+    Compares the local sermon data with the scraped sermon index and groups the sermons that need updating by page.
+    """
+    with open(sermons_json_path, 'r') as f:
+        local_sermons = json.load(f)
+    
+    with open(sermon_index_path, 'r') as f:
+        online_sermons = json.load(f)
+
+    local_sermons_dict = {create_sermon_slug(s['title'], pd.to_datetime(s['post_date_gmt'], utc=True).tz_convert('Australia/Melbourne')): s for s in local_sermons}
+    
+    updates_by_page = {}
+
+    for online_sermon in online_sermons:
+        slug = online_sermon['slug']
+        if slug in local_sermons_dict:
+            local_sermon = local_sermons_dict[slug]
+            
+            # Compare fields to see if an update is needed
+            update_needed = False
+            if local_sermon.get("preacher") != online_sermon.get("speaker"):
+                update_needed = True
+            if local_sermon.get("sermon_series") != online_sermon.get("sermon_series"):
+                update_needed = True
+            if local_sermon.get("bible_passage") != online_sermon.get("bible_passage"):
+                update_needed = True
+
+            if update_needed:
+                page_url = online_sermon['page_url']
+                if page_url not in updates_by_page:
+                    updates_by_page[page_url] = []
+                
+                updates_by_page[page_url].append({
+                    "edit_url": online_sermon['edit_url'],
+                    "title": local_sermon['title'],
+                    "preacher": local_sermon.get('preacher', 'Guest Speaker'),
+                    "sermon_series": local_sermon.get('sermon_series', ''),
+                    "bible_passage": local_sermon.get('bible_passage', '')
+                })
+
+    return updates_by_page
+
 def fill_and_submit_sermon_form(page: Page, sermon_data: dict):
     """Fills and submits the sermon form after the modal is opened."""
-    print("Waiting for form modal...")
     form_locator = page.locator("form[id^='edit_sermon_']")
     expect(form_locator).to_be_visible(timeout=10000)
-    print("Form modal is visible. Filling details...")
+    print("Form is visible. Filling details...")
 
     form_locator.locator("#sermon_title").fill(sermon_data.get("title", ""))
     form_locator.locator("#sermon_subtitle").fill("")
-
-    # Assume date is already correct and skip
-    # sermon_date = sermon_data.get("post_date_gmt", "").split(" ")[0]
-    # if sermon_date:
-    #     form_locator.locator("#sermon_sermon_date").fill(sermon_date)
 
     speaker_name = sermon_data.get("preacher", "Guest Speaker")
     speaker_select = form_locator.locator("#sermon_speaker_id")
@@ -227,18 +209,6 @@ def main():
         print("❌ ERROR: Please provide TITHELY_EMAIL and TITHELY_PASSWORD as environment variables.")
         return
 
-    try:
-        with open(JSON_FILE_PATH, 'r') as f:
-            sermons_to_update = json.load(f)
-    except FileNotFoundError:
-        print(f"❌ ERROR: JSON file not found at '{JSON_FILE_PATH}'")
-        return
-
-    sermons_to_update.reverse()
-    print(f"Loaded and reversed {len(sermons_to_update)} sermons for processing.")
-
-    # sermons_to_update = sermons_to_update[3:30] # DEBUG: limit to first 30 sermons starting with the 4th sermon to skip the first 3
-
     with sync_playwright() as p:
         browser = p.chromium.launch(
             executable_path=BRAVE_EXECUTABLE_PATH,
@@ -258,38 +228,46 @@ def main():
             page.goto(podcast_list_url)
             expect(page.locator("h1:has-text('Test Sermon Import')")).to_be_visible()
 
-            # Step 3: Create an index of all sermons
-            print("Creating sermon index...")
-            sermon_index = create_sermon_index(page)
-            print(f"Found {len(sermon_index)} sermons in the index.")
-            # Write the index to a file for reuse
-            with open("sermon_index.json", "w") as index_file:
-                json.dump(sermon_index, index_file, indent=4)
+            # Step 3: Create an index of all sermons if it doesn't exist
+            if not os.path.exists(SERMON_INDEX_PATH):
+                print("Sermon index not found. Creating it now...")
+                sermon_index = create_sermon_index(page)
+                with open(SERMON_INDEX_PATH, "w") as index_file:
+                    json.dump(sermon_index, index_file, indent=4)
+                print(f"Found {len(sermon_index)} sermons in the index.")
+            else:
+                print("Sermon index found. Skipping index creation.")
+
+            # Step 4: Compare and group sermons for update
+            updates_by_page = compare_and_group_sermons(JSON_FILE_PATH, SERMON_INDEX_PATH)
             
-            exit(0)  # Exit after creating the index if needed
+            if not updates_by_page:
+                print("No sermons need updating.")
+                return
 
-            # Step 3: Loop through each sermon and update it
-            for sermon in sermons_to_update:
-                try:
-                    was_found_and_opened = find_and_open_sermon_editor(page, sermon)
-                    
-                    if was_found_and_opened:
+            print(f"Found {sum(len(s) for s in updates_by_page.values())} sermons to update across {len(updates_by_page)} pages.")
+
+            # Step 5: Loop through each page and update the sermons
+            for page_url, sermons_to_update in updates_by_page.items():
+                print(f"\n--- Navigating to page: {page_url} ---")
+                page.goto(page_url)
+                for sermon in sermons_to_update:
+                    try:
+                        print(f"Processing sermon: {sermon['title']}")
+                        # Find the edit button and click it
+                        edit_button = page.locator(f"a.js-sermon-form-link[href^='{sermon['edit_url']}/edit']")
+                        edit_button.click()
+                        
                         fill_and_submit_sermon_form(page, sermon)
-                        # successful edit will redirect to sermon detail page
-                        # use back navigation to return to the list where we left it
-                        print("Returning to sermon list...")
-                        page.go_back()
-                        expect(page.locator("h1:has-text('Test Sermon Import')")).to_be_visible()
-                    else:
-                        print(f"Skipping '{sermon.get('title')}' as it could not be found.")
+                        
+                        # After updating, we are on the sermon detail page. Go back to the index page.
+                        page.goto(page_url)
 
-                except Exception as e:
-                    print(f"❌ An error occurred while processing '{sermon.get('title', 'Unknown Sermon')}': {e}")
-                    print("Reloading the page to recover...")
-                    page.reload()
-                    # print("Going back to previous page...")
-                    # page.go_back()
-                    print(f"Current URL: {page.url}")
+                    except Exception as e:
+                        print(f"❌ An error occurred while processing '{sermon.get('title', 'Unknown Sermon')}': {e}")
+                        print("Reloading the page to recover...")
+                        page.reload()
+                        print(f"Current URL: {page.url}")
 
             print("\n🎉 All sermons have been processed.")
 
@@ -300,6 +278,7 @@ def main():
             print("Screenshot saved to error_screenshot.png")
         finally:
             browser.close()
+
 
 if __name__ == "__main__":
     main()

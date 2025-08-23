@@ -58,8 +58,7 @@ def login(page: Page, email: str, password: str):
     expect(page.locator("text=You are now logged in")).to_be_visible(timeout=15000)
     print("Login successful!")
 
-
-# (This function finds the sermon, handling pagination)
+# Search for a sermon by its slug and open the editor
 def find_and_open_sermon_editor(page: Page, sermon_data: dict) -> bool:
     """
     Searches for a sermon's edit button, clicking through pagination if needed.
@@ -113,7 +112,61 @@ def find_and_open_sermon_editor(page: Page, sermon_data: dict) -> bool:
     page.goto(start_url)
     return False # Failure
 
-# (This function just fills the form, assuming the modal is open)
+# Go through all pages and create an index
+def create_sermon_index(page: Page):
+    """
+    Creates an index of all sermons with their slugs and page numbers.
+    Returns a list of dictionaries with slugs and page numbers.
+    """
+    sermon_index = []
+    current_page = 1
+
+    while True:
+        print(f"Processing page {current_page}...")
+        sermon_links = page.locator("a.row.d-sm-flex[href^='/media/']")
+        
+        if not sermon_links.count():
+            print("No more sermons found on this page.")
+            break
+
+        for link in sermon_links.all():
+            slug_match = re.search(r'/media/([^/]+)', link.get_attribute("href"))
+            
+            title_texts = link.locator("h2.h3").all_inner_texts()
+            speaker_texts = link.locator("div.h5").all_inner_texts()
+            date_texts = link.locator(".h5 + .text-muted").all_inner_texts()
+            passage_texts = link.locator(".text-body + .text-muted").all_inner_texts()
+            series_texts = link.locator("div.text-body").all_inner_texts()
+
+            sermon_index.append({
+                "slug": slug_match.group(1) if slug_match else "Unknown Slug",
+                "page": current_page,
+                "page_url": page.url,
+                "edit_url": link.get_attribute("href"),
+                "title": title_texts[0].strip() if title_texts else "Unknown Title",
+                "speaker": speaker_texts[0].strip() if speaker_texts else "Unknown Speaker",
+                "date": date_texts[0].strip() if date_texts else "Unknown Date",
+                "bible_passage": passage_texts[0].strip() if passage_texts else "Unknown Passage",
+                "sermon_series": series_texts[0].strip() if series_texts else "Unknown Series",
+            })
+
+        if current_page > 140:  # Safety limit to avoid infinite loops
+            print("Reached the end of the sermon list. Stopping index creation.")
+            break
+
+        # Check for the "Next" button
+        next_button = page.get_by_role("link", name="→")
+        if next_button.is_enabled():
+            next_button.click()
+            page.wait_for_load_state("domcontentloaded")
+            current_page += 1
+        else:
+            print("No more pages to process.")
+            break
+
+    return sermon_index
+
+# Fill the form, assuming the modal is open
 def fill_and_submit_sermon_form(page: Page, sermon_data: dict):
     """Fills and submits the sermon form after the modal is opened."""
     print("Waiting for form modal...")
@@ -201,6 +254,16 @@ def main():
             print(f"Navigating to the sermon list page: {podcast_list_url}")
             page.goto(podcast_list_url)
             expect(page.locator("h1:has-text('Test Sermon Import')")).to_be_visible()
+
+            # Step 3: Create an index of all sermons
+            print("Creating sermon index...")
+            sermon_index = create_sermon_index(page)
+            print(f"Found {len(sermon_index)} sermons in the index.")
+            # Write the index to a file for reuse
+            with open("sermon_index.json", "w") as index_file:
+                json.dump(sermon_index, index_file, indent=4)
+            
+            exit(0)  # Exit after creating the index if needed
 
             # Step 3: Loop through each sermon and update it
             for sermon in sermons_to_update:

@@ -10,6 +10,9 @@ import sys
 import pandas as pd
 from datetime import datetime
 from playwright.sync_api import sync_playwright, Page, expect
+from dotenv import load_dotenv
+
+load_dotenv()
 
 # --- CONFIGURATION ---
 # IMPORTANT: Fill these values in before running the script.
@@ -133,8 +136,8 @@ def create_sermon_index(page: Page):
             slug_match = re.search(r'/media/([^/]+)', link.get_attribute("href"))
             
             title_texts = link.locator("h2.h3").all_inner_texts()
-            speaker_texts = link.locator("div.h5").all_inner_texts()
-            date_texts = link.locator(".h5 + .text-muted").all_inner_texts()
+            speaker_texts = link.locator('div.h5.my-0, div.text-body.line-height-2').all_inner_texts()
+            date_texts = link.locator('div.text-muted:last-child').all_inner_texts()
             passage_texts = link.locator(".text-body + .text-muted").all_inner_texts()
             series_texts = link.locator("div.text-body").all_inner_texts()
 

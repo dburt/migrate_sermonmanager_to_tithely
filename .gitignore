@@ -11,5 +11,8 @@ results/
 transcripts/
 stalfreds.tithelysetup.com/
 
-# Exclude the git initialization script itself
-initialize_git.sh
+# Screenshots
+*.png
+
+# Environment variables
+.env

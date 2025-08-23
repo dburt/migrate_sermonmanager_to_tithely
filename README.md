@@ -130,3 +130,47 @@ This is a self-contained HTML file that provides a rich, interactive interface f
 *   Pagination.
 *   Clickable links to Bible passages on ref.ly.
 *   A responsive layout that adapts to mobile and desktop screens.
+
+## Metadata Updates
+
+After the initial data migration, it may be necessary to perform bulk updates to the sermon metadata directly within Tithely. The `tithely_metadata_update/` directory contains tools to automate this process.
+
+### The Challenge
+
+Tithely's web interface does not provide a way to bulk-edit sermon metadata, such as assigning sermons to a series or a podcast. Updating hundreds of sermons manually is time-consuming and error-prone.
+
+### The Solution
+
+The `tithely_updater.py` script uses browser automation (via Playwright) to log in to the Tithely admin interface and systematically update each sermon based on the data in `sermons.json`.
+
+The script performs the following steps:
+1.  Loads sermon data from `sermons.json`.
+2.  Creates an index of all sermons available in the Tithely admin panel by scraping the sermon list pages.
+3.  For each sermon in the local `sermons.json`, it finds the corresponding sermon in the Tithely index.
+4.  It then navigates to the edit page for that sermon and updates the following fields:
+    *   Speaker
+    *   Sermon Series
+    *   Podcast ID
+    *   Bible Passage
+
+### Setup and Usage
+
+1.  **Install Dependencies:**
+    ```bash
+    mise install && uv sync
+    uv pip install python-dotenv
+    ```
+
+2.  **Configure Credentials:**
+    Create a `.env` file in the project root:
+    ```
+    TITHELY_EMAIL=your_email@example.com
+    TITHELY_PASSWORD=your_password
+    ```
+    This file is gitignored, so your credentials will not be committed.
+
+3.  **Run the Updater:**
+    ```bash
+    python tithely_metadata_update/tithely_updater.py
+    ```
+    The script will open a browser window and perform the updates. You can monitor its progress in the terminal.

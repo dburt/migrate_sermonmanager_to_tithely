@@ -6,54 +6,77 @@ This project documents the process of migrating the sermon archive for St Alfred
 
 The work here has two primary objectives:
 
-1.  **Data Migration:** To clean, process, and re-format the data exported from WordPress into an RSS feed (`podcast_feed.xml`) that is suitable for a clean import into Tithely.
-2.  **Contingency Planning:** To demonstrate the feasibility of hosting the entire sermon back-catalogue as a static, searchable website (`stalfreds-sermons-styled.html`). This serves as a fallback option in case the Tithely import is unsuccessful or does not meet the church's needs, ensuring the historical archive remains accessible.
+1.  **Data Migration:** To clean, process, import, and correct the data exported from WordPress feed into the Tithely platform.
+2.  **Contingency Planning:** To demonstrate the feasibility of hosting the entire sermon back-catalogue as a static, searchable website, now located in the `sermon-archive/` directory. This serves as a fallback option and to ensure we retain access to the archive as Tithely lacks export capability.
 
 ## Overview
 
 This project contains a set of scripts and a single-page web application to process, clean, and display sermon data for St Alfred's Anglican Church.
 
-The main goal is to take a raw CSV export of sermon data, clean it, enrich it, and then present it in two main ways:
-1.  A filterable, searchable sermon browser (`stalfreds-sermons-styled.html`).
+The main goal is to take a raw CSV export of sermon data, clean it, enrich it, and then present it as:
+1.  A filterable, searchable sermon browser (`sermon-archive/stalfreds-sermons.html`).
 2.  A podcast-compliant RSS feed (`podcast_feed.xml`).
+3.  Imported sermon archive in Tithely (via `tithely_metadata_update`).
 
-Additionally, there are scripts to generate audio transcriptions using Faster Whisper.
+We may also be able to add transcripts with Whisper, and use that to create an enhanced topic index.
 
 ## Data Pipeline
 
-The following diagram illustrates the flow of data from the initial CSV to the final products.
+The following diagram illustrates the flow of data from the initial sources to the final products.
 
 ```mermaid
 graph LR
-    subgraph "Source Data"
-        A("sermons_cleaned_ai_studio.csv")
+    subgraph "Initial Data Sources"
+        A("Wordpress Sermon Manager Export (CSV)")
+        B("Tithely RSS Feed (Manual Sample)")
+        C("Old Platform RSS Feed (500 limit)")
+    end
+
+    subgraph "AI-Assisted Cleaning"
+        D{{"Gemini in AI Studio"}}
+    end
+
+    subgraph "Cleaned Data"
+        E("sermons_cleaned_ai_studio.csv")
     end
 
     subgraph "Scripts"
-        B(clean_content_text.py)
-        D(convert_csv_to_json.py)
-        F(generate_rss_feed.py)
-        H(stalfreds-sermons-styled.html)
-        I(transcribe.py)
+        F(clean_content_text.py)
+        G(convert_csv_to_json.py)
+        H(generate_rss_feed.py)
+        I(sermon-archive/stalfreds-sermons.html)
+        J(transcribe.py)
+        K(tithely_metadata_update/tithely_updater.py)
+        L(tithely_metadata_update/analyze_updates.py)
     end
 
     subgraph "Intermediate & Final Products"
-        C("sermons_cleaned_*.csv")
-        E("sermons_*.json")
-        G("podcast_feed_*.xml")
-        J("transcripts/*.txt")
+        N("sermons_cleaned_*.csv")
+        O("sermons_*.json")
+        P("podcast_feed_*.xml")
+        Q("transcripts/*.txt")
+        R("sermon_index.json")
     end
 
-    A --> B;
-    B --> C;
-    C --> D;
-    D --> E;
-    E --> F;
-    E --> H;
-    E --> I;
-    F --> G;
-    I --> J;
+    B --> D
+    C --> D
+    D --> E
+    E --> F
+    F --> N
+    N --> G
+    G --> O
+    O --> H
+    O --> I
+    O --> J
+    O --> K
+    O --> L
+    K --> R
+    R --> L
+    H --> P
+    J --> Q
 ```
+
+A note on the initial data cleaning: The initial export from WordPress was manually cleaned and then processed using Gemini in AI Studio to perform a broad data cleaning and structuring, resulting in the `sermons_cleaned_ai_studio.csv` file, which serves as the primary source for the rest of the pipeline.
 
 ## Scripts and Usage
 
@@ -74,7 +97,7 @@ This is the main script to run the entire data pipeline. It cleans the source CS
 
 **1. `clean_content_text.py`**
 
-*   **Purpose:** Reads a CSV file from standard input and removes redundant text (e.g., "Preacher:", "Series:") from the `content_text` column.
+*   **Purpose:** Reads a CSV file from standard input and removes redundant text from the `content_text` column.
 *   **Usage:**
     ```bash
     cat input.csv | python3 clean_content_text.py > output.csv
@@ -121,7 +144,7 @@ This is the main script to run the entire data pipeline. It cleans the source CS
 
 ### Sermon Browser
 
-**`stalfreds-sermons-styled.html`**
+**`sermon-archive/stalfreds-sermons.html`**
 
 This is a self-contained HTML file that provides a rich, interactive interface for browsing the sermon archive. It loads its data from `sermons.json` and includes features like:
 
@@ -158,7 +181,6 @@ The script performs the following steps:
 1.  **Install Dependencies:**
     ```bash
     mise install && uv sync
-    uv pip install python-dotenv
     ```
 
 2.  **Configure Credentials:**
@@ -170,7 +192,24 @@ The script performs the following steps:
     This file is gitignored, so your credentials will not be committed.
 
 3.  **Run the Updater:**
+    To create a new index of the sermons on Tithely:
+    ```bash
+    python tithely_metadata_update/tithely_updater.py --index-only
+    ```
+    To run the full update process:
     ```bash
     python tithely_metadata_update/tithely_updater.py
     ```
     The script will open a browser window and perform the updates. You can monitor its progress in the terminal.
+
+4.  **Analyze Discrepancies:**
+    The `analyze_updates.py` script can be used to compare the local `sermons.json` with the `sermon_index.json` from Tithely and identify any gaps or discrepancies.
+    ```bash
+    python tithely_metadata_update/analyze_updates.py
+    ```
+
+5.  **Add File Sizes:**
+    The `add_file_sizes.py` script can be used to add the `file_size_bytes` field to `sermons.json`, which is used for matching sermons with duplicate titles.
+    ```bash
+    python tithely_metadata_update/add_file_sizes.py
+    ```

@@ -42,7 +42,8 @@ def generate_rss_feed(json_filepath, rss_filepath):
 
     # RSS Feed Items
     for sermon in sermons:
-        continue if not sermon.get('status') == 'publish'
+        if not sermon.get('status') == 'publish':
+            continue
 
         title = html.escape(sermon.get('title', 'No Title'))
         permalink = sermon.get('permalink', '#')

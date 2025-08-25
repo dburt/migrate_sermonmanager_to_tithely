@@ -9,24 +9,15 @@ def clean_content(row):
     if not content:
         return content
 
-    # List of fields to check and remove from content_text
-    fields_to_remove = ['preacher', 'sermon_series', 'bible_passage']
-    
-    # Static boilerplate text to remove
-    boilerplate = ['Bible Text:', 'Preacher:', 'Series:', '|']
+    parts = content.split('|')
+    new_parts = []
+    for part in parts:
+        part = part.strip()
+        if not part.lower().startswith(('bible text:', 'preacher:', 'series:')):
+            new_parts.append(part)
 
-    for field in fields_to_remove:
-        value = row.get(field)
-        if value:
-            content = content.replace(value, '')
+    return ' '.join(new_parts)
 
-    for text in boilerplate:
-        content = content.replace(text, '')
-
-    # Clean up extra whitespace and separators
-    content = ' '.join(content.split())
-    
-    return content
 
 def main():
     """Main function to read from stdin, clean the CSV data, and write to stdout."""

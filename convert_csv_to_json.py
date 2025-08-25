@@ -36,17 +36,15 @@ def clean_and_convert_csv_to_json(csv_filepath, json_filepath):
             obj = {}
             for j, h in enumerate(header):
                 obj[h] = row_values[j]
-            
+
             post_id = obj.get('post_id')
-            if post_id == '897':
-                if obj.get('audio_url') == 'http://s3-ap-southeast-2.amazonaws.com/stamp3,29':
-                    print(f"Skipping deficient duplicate for post_id 897: {obj}")
-                    continue
-                elif post_id in processed_post_ids:
-                    print(f"Skipping already processed post_id 897: {obj}")
-                    continue
-            
+
+            if obj.get('status') == 'private':
+                print(f"Skipping row with status='private': {stripped_line}")
+                continue
+
             data.append(obj)
+
             if post_id:
                 processed_post_ids.add(post_id)
 

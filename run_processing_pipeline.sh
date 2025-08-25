@@ -21,11 +21,11 @@ cat "${INPUT_CSV}" | python3 clean_content_text.py > "${CLEANED_CSV}"
 
 # Step 2: Convert cleaned CSV to JSON
 echo "Step 2: Converting ${CLEANED_CSV} -> ${JSON_OUTPUT}"
-python3 convert_csv_to_json.py "${CLEANED_CSV}" "${JSON_OUTPUT}"
+uv run convert_csv_to_json.py "${CLEANED_CSV}" "${JSON_OUTPUT}"
 
 # Step 3: Generate RSS feed from JSON
 echo "Step 3: Generating ${JSON_OUTPUT} -> ${RSS_OUTPUT}"
-python3 generate_rss_feed.py "${JSON_OUTPUT}" "${RSS_OUTPUT}"
+uv run generate_rss_feed.py "${JSON_OUTPUT}" "${RSS_OUTPUT}"
 
 echo ""
 echo "----------------------------------------"

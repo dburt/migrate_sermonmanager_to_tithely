@@ -405,7 +405,7 @@
                 if (sermon && sermon.title) {
                     const item = document.createElement('div');
                     item.className = 'sermon-item d-sm-flex';
-                    const postDate = new Date(sermon.post_date_gmt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+                    const postDate = new Date(sermon.post_date_gmt + 'Z').toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', dateStyle: 'full', timeStyle: 'short' });
 
                     const hasSermonImage = sermon.image_url && sermon.image_url !== 'https://via.placeholder.com/150';
                     const hasPreacherImage = sermon.preacher_image_url && sermon.preacher_image_url !== 'https://via.placeholder.com/40';
@@ -531,7 +531,7 @@
             filtersContainer.style.display = 'none';
             activeFilterContainer.style.display = 'none';
 
-            const postDate = new Date(sermon.post_date_gmt).toLocaleDateString(undefined, { year: 'numeric', month: 'long', day: 'numeric' });
+            const postDate = new Date(sermon.post_date_gmt + 'Z').toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', dateStyle: 'full', timeStyle: 'short' });
             
             const relatedBySeries = allSermons.filter(s => s.sermon_series === sermon.sermon_series && s.originalIndex !== sermon.originalIndex);
             const relatedByPreacher = allSermons.filter(s => s.preacher === sermon.preacher && s.originalIndex !== sermon.originalIndex);

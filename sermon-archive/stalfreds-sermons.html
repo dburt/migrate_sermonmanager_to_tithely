@@ -575,7 +575,7 @@
                             </div>
                         </div>
                         <div class="content">
-                            <p><strong>Bible Passage:</strong> ${sermon.bible_passage ? `<a href="https://ref.ly/${encodeURIComponent(sermon.bible_passage)};niv?t=biblia" target="_blank" rel="noopener noreferrer">${sermon.bible_passage}</a>` : 'N/A'}</p>
+                            <p><strong>Bible Passage:</strong> ${sermon.bible_passage ? sermon.bible_passage.split(';').map(p => `<a href="https://ref.ly/${encodeURIComponent(p.trim())};niv?t=biblia" target="_blank" rel="noopener noreferrer">${p.trim()}</a>`).join(', ') : 'N/A'}</p>
                             <p><strong>Topics:</strong> ${sermon.sermon_topics || 'N/A'}</p>
                             ${sermon.audio_url ? `<audio controls src="${sermon.audio_url}"></audio>` : ''}
                         </div>

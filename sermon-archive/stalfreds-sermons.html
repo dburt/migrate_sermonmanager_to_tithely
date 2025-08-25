@@ -166,6 +166,7 @@
         <div id="active-filter">
             <span id="current-filter-display"></span>
             <button id="clear-filter-btn">Clear All Filters</button>
+            <span id="sermon-count"></span>
         </div>
 
         <div id="sermon-list-container">
@@ -397,6 +398,8 @@
             const indexOfLastSermon = currentPage * sermonsPerPage;
             const indexOfFirstSermon = indexOfLastSermon - sermonsPerPage;
             const sermonsToDisplay = currentSermons.slice(indexOfFirstSermon, indexOfLastSermon);
+
+            document.getElementById('sermon-count').textContent = `(${currentSermons.length} sermons)`;
 
             sermonsToDisplay.forEach(sermon => {
                 if (sermon && sermon.title) {

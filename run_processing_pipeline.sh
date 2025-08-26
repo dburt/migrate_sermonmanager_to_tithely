@@ -35,3 +35,7 @@ echo "- ${CLEANED_CSV}"
 echo "- ${JSON_OUTPUT}"
 echo "- ${RSS_OUTPUT}"
 echo "----------------------------------------"
+
+# Step 4: Create a symlink to the latest JSON file
+echo "Step 4: Creating symlink sermons.json -> ${JSON_OUTPUT}"
+ln -sf "${JSON_OUTPUT}" sermons.json

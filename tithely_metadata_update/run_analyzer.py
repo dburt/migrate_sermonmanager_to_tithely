@@ -1,36 +1,20 @@
 #!/usr/bin/env -S uv run --script
 
-# analyze_updates.py
+# run_analyzer.py
 
 import json
-import requests
 from collections import defaultdict
-from playwright.sync_api import sync_playwright, Page
+from tithely_manager import TithelyManager
+import os
 
-JSON_FILE_PATH = "../sermons.json"
+# --- CONFIGURATION ---
+TITHELY_EMAIL = os.environ.get("TITHELY_EMAIL")
+TITHELY_PASSWORD = os.environ.get("TITHELY_PASSWORD")
+JSON_FILE_PATH = "sermons.json"
 SERMON_INDEX_PATH = "sermon_index.json"
-BASE_URL = "https://stalfreds.tithelysetup.com"
-
-def get_audio_download_url(page: Page, sermon_url: str) -> str:
-    """Gets the audio download URL from a sermon detail page."""
-    print(f"Getting audio download URL from: {sermon_url}")
-    page.goto(f"{BASE_URL}{sermon_url}")
-    download_link = page.locator("a.btn.btn-link[href*='cloudfront.net']")
-    if download_link.count() > 0:
-        return download_link.first.get_attribute("href")
-    return ""
-
-def get_file_size(url: str) -> int:
-    """Gets the file size in bytes from a URL using a HEAD request."""
-    try:
-        response = requests.head(url, timeout=10)
-        response.raise_for_status()
-        file_size = response.headers.get('Content-Length')
-        if file_size:
-            return int(file_size)
-    except requests.exceptions.RequestException as e:
-        print(f"Error getting file size for {url}: {e}")
-    return 0
+BRAVE_EXECUTABLE_PATH = "/usr/bin/brave-browser"
+HEADLESS_MODE = False
+# ---------------------
 
 def main():
     """Analyzes the sermon data to identify discrepancies."""
@@ -52,9 +36,8 @@ def main():
     local_only = []
     online_only = set(s['title'] for s in online_sermons)
 
-    with sync_playwright() as p:
-        browser = p.chromium.launch()
-        page = browser.new_page()
+    with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, HEADLESS_MODE) as manager:
+        manager.login()
 
         for title, local_sermon_list in local_sermons_by_title.items():
             if title in online_sermons_by_title:
@@ -65,8 +48,8 @@ def main():
                     for local_sermon in local_sermon_list:
                         found_match = False
                         for online_sermon in online_sermon_list:
-                            online_audio_url = get_audio_download_url(page, online_sermon['edit_url'])
-                            online_file_size = get_file_size(online_audio_url)
+                            online_audio_url = manager.get_audio_download_url(online_sermon['edit_url'])
+                            online_file_size = manager.get_file_size(online_audio_url)
                             
                             if local_sermon.get('file_size_bytes') == online_file_size:
                                 # Found a match, now compare fields

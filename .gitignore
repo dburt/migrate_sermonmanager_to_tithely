@@ -11,6 +11,10 @@ results/
 transcripts/
 stalfreds.tithelysetup.com/
 
+# Build artifacts
+__pycache__
+*.pyc
+
 # Screenshots
 *.png
 

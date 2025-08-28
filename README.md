@@ -27,9 +27,14 @@ The following diagram illustrates the flow of data from the initial sources to t
 ```mermaid
 graph LR
     subgraph "Initial Data Sources"
+        A_XML("Wordpress Sermon Manager Export (XML)")
         A("Wordpress Sermon Manager Export (CSV)")
         B("Tithely RSS Feed (Manual Sample)")
         C("Old Platform RSS Feed (500 limit)")
+    end
+
+    subgraph "Initial Conversion"
+        CONVERT(convert_to_csv.py)
     end
 
     subgraph "AI-Assisted Cleaning"
@@ -41,13 +46,13 @@ graph LR
     end
 
     subgraph "Scripts"
-        F(clean_content_text.py)
+        F(clean_csv.py)
         G(convert_csv_to_json.py)
         H(generate_rss_feed.py)
         I(sermon-archive/stalfreds-sermons.html)
         J(transcribe.py)
         K(tithely_metadata_update/tithely_updater.py)
-        L(tithely_metadata_update/analyze_updates.py)
+        L(tithely_metadata_update/run_analyzer.py)
     end
 
     subgraph "Intermediate & Final Products"
@@ -58,6 +63,9 @@ graph LR
         R("sermon_index.json")
     end
 
+    A_XML --> CONVERT
+    CONVERT --> A
+    A --> D
     B --> D
     C --> D
     D --> E
@@ -95,12 +103,12 @@ This is the main script to run the entire data pipeline. It cleans the source CS
 
 ### Individual Scripts
 
-**1. `clean_content_text.py`**
+**1. `clean_csv.py`**
 
-*   **Purpose:** Reads a CSV file from standard input and removes redundant text from the `content_text` column.
+*   **Purpose:** Reads a CSV file from standard input, identifies service time from audio filename, adds melbourne date/time, makes titles unique, and removes redundant text from the `content_text` column.
 *   **Usage:**
     ```bash
-    cat input.csv | python3 clean_content_text.py > output.csv
+    python3 clean_csv.py input.csv output.csv
     ```
 
 **2. `convert_csv_to_json.py`**
@@ -205,7 +213,7 @@ The script performs the following steps:
 4.  **Analyze Discrepancies:**
     The `analyze_updates.py` script can be used to compare the local `sermons.json` with the `sermon_index.json` from Tithely and identify any gaps or discrepancies.
     ```bash
-    python tithely_metadata_update/analyze_updates.py
+    python tithely_metadata_update/run_analyzer.py
     ```
 
 5.  **Add File Sizes:**

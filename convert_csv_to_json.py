@@ -40,7 +40,6 @@ def clean_and_convert_csv_to_json(csv_filepath, json_filepath):
             post_id = obj.get('post_id')
 
             if obj.get('status') == 'private':
-                print(f"Skipping row with status='private': {stripped_line}")
                 continue
 
             data.append(obj)

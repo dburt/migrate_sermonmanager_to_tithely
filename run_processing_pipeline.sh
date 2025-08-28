@@ -17,7 +17,7 @@ echo "Starting data processing pipeline..."
 
 # Step 1: Clean the source CSV
 echo "Step 1: Cleaning ${INPUT_CSV} -> ${CLEANED_CSV}"
-cat "${INPUT_CSV}" | python3 clean_content_text.py > "${CLEANED_CSV}"
+./clean_csv.py "${INPUT_CSV}" "${CLEANED_CSV}"
 
 # Step 2: Convert cleaned CSV to JSON
 echo "Step 2: Converting ${CLEANED_CSV} -> ${JSON_OUTPUT}"

@@ -176,7 +176,7 @@ The `tithely_updater.py` script uses browser automation (via Playwright) to log 
 
 The script performs the following steps:
 1.  Loads sermon data from `sermons.json`.
-2.  Creates an index of all sermons available in the Tithely admin panel by scraping the sermon list pages.
+2.  Creates an index of all sermons available in the Tithely admin panel by scraping the sermon list pages. This can be done from the general media listing or a specific podcast page.
 3.  For each sermon in the local `sermons.json`, it finds the corresponding sermon in the Tithely index.
 4.  It then navigates to the edit page for that sermon and updates the following fields:
     *   Speaker
@@ -199,24 +199,36 @@ The script performs the following steps:
     ```
     This file is gitignored, so your credentials will not be committed.
 
-3.  **Run the Updater:**
-    To create a new index of the sermons on Tithely:
+3.  **Indexing Sermons from Tithe.ly:**
+    Before running an update, you need to create an index of the sermons on Tithe.ly. The `run_updater.py` script can be used for this purpose with the `--index-only` flag.
+
+    There are two indexing modes:
+    *   **General Listing (Default):** This mode scrapes the general media listing at `/media/listing`, which contains all sermons.
+    *   **Podcast Specific:** You can also point the indexer to a specific podcast URL.
+
+    **Usage:**
     ```bash
-    python tithely_metadata_update/tithely_updater.py --index-only
+    # Create an index from the general media listing
+    python tithely_metadata_update/run_updater.py --index-only
+
+    # Create an index with full details (slower)
+    python tithely_metadata_update/run_updater.py --index-only --full-details
     ```
-    To run the full update process:
+
+4.  **Run the Updater:**
+    Once you have a `sermon_index.json` file, you can run the full update process.
     ```bash
-    python tithely_metadata_update/tithely_updater.py
+    python tithely_metadata_update/run_updater.py
     ```
     The script will open a browser window and perform the updates. You can monitor its progress in the terminal.
 
-4.  **Analyze Discrepancies:**
+5.  **Analyze Discrepancies:**
     The `analyze_updates.py` script can be used to compare the local `sermons.json` with the `sermon_index.json` from Tithely and identify any gaps or discrepancies.
     ```bash
     python tithely_metadata_update/run_analyzer.py
     ```
 
-5.  **Add File Sizes:**
+6.  **Add File Sizes:**
     The `add_file_sizes.py` script can be used to add the `file_size_bytes` field to `sermons.json`, which is used for matching sermons with duplicate titles.
     ```bash
     python tithely_metadata_update/add_file_sizes.py

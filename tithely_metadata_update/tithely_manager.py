@@ -53,35 +53,47 @@ class TithelyManager:
         expect(self.page.locator("text=You are now logged in")).to_be_visible(timeout=15000)
         print("Login successful!")
 
-    def create_sermon_index(self):
+    def create_sermon_index(self, listing_url="/media/listing", full_details=False, with_audio_urls=False):
         """Creates an index of all sermons with their slugs and page numbers."""
-        self.page.goto(f"{self.base_url}/podcasts/test-sermon-import")
-        sermon_index = []
+        self.page.goto(f"{self.base_url}{listing_url}")
+        
+        sermon_data_list = []
         current_page = 1
         while True:
             print(f"Processing page {current_page}...")
-            sermon_links = self.page.locator("a.row.d-sm-flex[href^='/media/']")
-            if not sermon_links.count():
+            self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=10000)
+            sermon_rows = self.page.locator("table.table-hover.table-align-middle.table-nowrap tr")
+            if not sermon_rows.count():
                 print("No more sermons found on this page.")
                 break
-            for link in sermon_links.all():
-                slug_match = re.search(r'/media/([^/]+)', link.get_attribute("href"))
-                title_texts = link.locator("h2.h3").all_inner_texts()
-                speaker_texts = link.locator('div.h5.my-0, div.text-body.line-height-2').all_inner_texts()
-                date_texts = link.locator('div.text-muted:last-child').all_inner_texts()
-                passage_texts = link.locator(".text-body + .text-muted").all_inner_texts()
-                series_texts = link.locator("div.text-body").all_inner_texts()
-                sermon_index.append({
-                    "slug": slug_match.group(1) if slug_match else "Unknown Slug",
+            
+            for row in sermon_rows.all()[1:]: # Skip header row
+                title_link = row.locator("td.table-item-name a").first
+                href = title_link.get_attribute("href")
+                slug_match = re.search(r'/media/([^/]+)', href)
+                slug = slug_match.group(1) if slug_match else "Unknown Slug"
+                edit_link = row.locator("a.js-sermon-form-link").first
+                edit_url = edit_link.get_attribute("href")
+                
+                podcast_slug = None
+                if "?podcast=" in edit_url:
+                    podcast_slug = edit_url.split("?podcast=")[-1]
+
+                sermon_data = {
+                    "slug": slug,
                     "page": current_page,
                     "page_url": self.page.url,
-                    "edit_url": link.get_attribute("href"),
-                    "title": title_texts[0].strip() if title_texts else "Unknown Title",
-                    "speaker": speaker_texts[0].strip() if speaker_texts else "Unknown Speaker",
-                    "date": date_texts[0].strip() if date_texts else "Unknown Date",
-                    "bible_passage": passage_texts[0].strip() if passage_texts else "Unknown Passage",
-                    "sermon_series": series_texts[0].strip() if series_texts else "Unknown Series",
-                })
+                    "edit_url": edit_url,
+                    "title": title_link.inner_text().strip(),
+                    "speaker": row.locator("td").nth(2).inner_text().strip(),
+                    "date": row.locator("td").first.inner_text().strip(),
+                    "sermon_series": row.locator("td").nth(3).get_attribute("title"),
+                    "media_type": row.locator("td").nth(4).inner_text().strip(),
+                    "podcast_slug": podcast_slug,
+                    "detail_page_url": href,
+                }
+                sermon_data_list.append(sermon_data)
+
             if current_page > 140:  # Safety limit
                 print("Reached the end of the sermon list. Stopping index creation.")
                 break
@@ -93,7 +105,30 @@ class TithelyManager:
             else:
                 print("No more pages to process.")
                 break
-        return sermon_index
+
+        if with_audio_urls:
+            for sermon_data in sermon_data_list:
+                sermon_data['audio_url'] = self.get_audio_download_url(sermon_data['detail_page_url'])
+
+        if full_details:
+            for sermon_data in sermon_data_list:
+                sermon_data.update(self.get_sermon_details(sermon_data['detail_page_url']))
+
+        return sermon_data_list
+
+    def get_sermon_details(self, sermon_url: str) -> dict:
+        """Gets additional details from a sermon detail page."""
+        print(f"Getting full details from: {sermon_url}")
+        self.page.goto(f"{self.base_url}{sermon_url}")
+        
+        # NOTE: This is a placeholder. We need to inspect the sermon page
+        # to determine what additional details are available and how to scrape them.
+        details = {
+            "description": self.page.locator(".sermon-description").first.inner_text().strip() if self.page.locator(".sermon-description").count() > 0 else "",
+        }
+        
+        self.page.go_back()
+        return details
 
     def get_audio_download_url(self, sermon_url: str) -> str:
         """Gets the audio download URL from a sermon detail page."""
@@ -129,7 +164,7 @@ class TithelyManager:
             speaker_select.select_option(label=speaker_name, timeout=2000)
         except Exception:
             speaker_select.select_option(label="Guest Speaker")
-        form_locator.locator("#sermon_podcast_id").select_option(value="3")
+        form_locator.locator("#sermon_podcast_id").select_option(value="5")
         series_name = sermon_data.get("sermon_series", "")
         series_select = form_locator.locator("#sermon_series_id")
         if series_select:

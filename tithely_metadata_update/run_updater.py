@@ -22,19 +22,20 @@ def main():
         print("❌ ERROR: Please provide TITHELY_EMAIL and TITHELY_PASSWORD as environment variables.")
         return
 
-    index_only = len(sys.argv) > 1 and sys.argv[1] == '--index-only'
+    index_only = '--index-only' in sys.argv
+    full_details = '--full-details' in sys.argv
 
     with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, HEADLESS_MODE) as manager:
         manager.login()
 
         if index_only or not os.path.exists(SERMON_INDEX_PATH):
             print("Creating sermon index...")
-            sermon_index = manager.create_sermon_index()
+            sermon_index = manager.create_sermon_index(full_details=full_details)
             with open(SERMON_INDEX_PATH, "w") as index_file:
                 json.dump(sermon_index, index_file, indent=4)
             print(f"Found {len(sermon_index)} sermons in the index.")
             if index_only:
-                exit(0)
+                return
         else:
             print("Sermon index found. Skipping index creation.")
 

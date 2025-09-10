@@ -23,8 +23,9 @@ def parse_arguments():
     parser.add_argument("--local-sermons", default="sermons.json", help="Path to the local sermons JSON file.")
     parser.add_argument("--sermon-index", default="sermon_index.json", help="Path to the sermon index JSON file.")
     parser.add_argument("--create-index", action="store_true", help="Create a new sermon index from Tithe.ly.")
-    parser.add_argument("--full-details", action="store_true", help="Fetch full details from sermon pages.")
-    parser.add_argument("--limit", type=int, default=None, help="Limit the number of detail pages to scrape. Default is all.")
+    parser.add_argument("--enrich", action="store_true", help="Enrich with details and audio URL from sermon pages.")
+    parser.add_argument("--with-file-sizes", action="store_true", help="Fetch audio file sizes (requires --enrich).")
+    parser.add_argument("--limit", type=int, default=None, help="Limit the number of sermons to enrich. Default is all.")
     parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without making any changes.")
     return parser.parse_args()
 
@@ -41,8 +42,9 @@ def main():
         with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, HEADLESS_MODE) as manager:
             manager.login()
             sermon_index = manager.create_sermon_index(
-                full_details=args.full_details, 
-                detail_scrape_limit=args.limit
+                enrich_details=args.enrich,
+                detail_scrape_limit=args.limit,
+                with_file_sizes=args.with_file_sizes
             )
             
             datestamp = datetime.now().strftime("%Y-%m-%d")

@@ -164,72 +164,61 @@ This is a self-contained HTML file that provides a rich, interactive interface f
 
 ## Metadata Updates
 
-After the initial data migration, it may be necessary to perform bulk updates to the sermon metadata directly within Tithely. The `tithely_metadata_update/` directory contains tools to automate this process.
+After the initial data migration, it may be necessary to perform bulk updates or analysis of the sermon metadata directly within Tithely. The `tithely_metadata_update/` directory contains tools to automate this process.
 
 ### The Challenge
 
-Tithely's web interface does not provide a way to bulk-edit sermon metadata, such as assigning sermons to a series or a podcast. Updating hundreds of sermons manually is time-consuming and error-prone.
+Tithely's web interface does not provide a way to bulk-edit sermon metadata, such as assigning sermons to a series or a podcast. Furthermore, the data present on the Tithely site may be incomplete or inconsistent compared to local records. Updating and verifying hundreds of sermons manually is time-consuming and error-prone.
 
-### The Solution
+### The Solution: A Data-First Approach
 
-The `tithely_updater.py` script uses browser automation (via Playwright) to log in to the Tithely admin interface and systematically update each sermon based on the data in `sermons.json`.
+The scripts in this directory allow for a data-driven workflow: first, we scrape all available data from the Tithely website into a local JSON file (`sermon_index.json`). Then, we can analyze this data, compare it against our local CSV records, and finally use the enriched data to update Tithely.
 
-The script performs the following steps:
-1.  Loads sermon data from `sermons.json`.
-2.  Creates an index of all sermons available in the Tithely admin panel by scraping the sermon list pages. This can be done from the general media listing or a specific podcast page.
-3.  For each sermon in the local `sermons.json`, it finds the corresponding sermon in the Tithely index.
-4.  It then navigates to the edit page for that sermon and updates the following fields:
-    *   Speaker
-    *   Sermon Series
-    *   Podcast ID
-    *   Bible Passage
+This workflow is primarily managed by the following scripts:
 
-### Setup and Usage
+#### 1. `selective_importer.py` - Scraper and Indexer
 
-1.  **Install Dependencies:**
+This is the main script for scraping sermon data from the Tithely website. It logs in, navigates the sermon list pages, and creates a local JSON file (`sermon_index_YYYY-MM-DD.json`) containing the data. It can optionally enrich this data by visiting each sermon's detail page.
+
+**Usage:**
+-   **Create a basic index:**
     ```bash
-    mise install && uv sync
+    ./tithely_metadata_update/selective_importer.py --create-index
     ```
-
-2.  **Configure Credentials:**
-    Create a `.env` file in the project root:
-    ```
-    TITHELY_EMAIL=your_email@example.com
-    TITHELY_PASSWORD=your_password
-    ```
-    This file is gitignored, so your credentials will not be committed.
-
-3.  **Indexing Sermons from Tithe.ly:**
-    Before running an update, you need to create an index of the sermons on Tithe.ly. The `run_updater.py` script can be used for this purpose with the `--index-only` flag.
-
-    There are two indexing modes:
-    *   **General Listing (Default):** This mode scrapes the general media listing at `/media/listing`, which contains all sermons.
-    *   **Podcast Specific:** You can also point the indexer to a specific podcast URL.
-
-    **Usage:**
+-   **Create an enriched index (with description, passage, audio URL):**
     ```bash
-    # Create an index from the general media listing
-    python tithely_metadata_update/run_updater.py --index-only
-
-    # Create an index with full details (slower)
-    python tithely_metadata_update/run_updater.py --index-only --full-details
+    ./tithely_metadata_update/selective_importer.py --create-index --enrich
     ```
-
-4.  **Run the Updater:**
-    Once you have a `sermon_index.json` file, you can run the full update process.
+-   **Create a full index (with details and file sizes):**
     ```bash
-    python tithely_metadata_update/run_updater.py
+    ./tithely_metadata_update/selective_importer.py --create-index --enrich --with-file-sizes
     ```
-    The script will open a browser window and perform the updates. You can monitor its progress in the terminal.
-
-5.  **Analyze Discrepancies:**
-    The `analyze_updates.py` script can be used to compare the local `sermons.json` with the `sermon_index.json` from Tithely and identify any gaps or discrepancies.
+-   **Limit the number of sermons for testing:**
     ```bash
-    python tithely_metadata_update/run_analyzer.py
+    ./tithely_metadata_update/selective_importer.py --create-index --enrich --limit 10
     ```
 
-6.  **Add File Sizes:**
-    The `add_file_sizes.py` script can be used to add the `file_size_bytes` field to `sermons.json`, which is used for matching sermons with duplicate titles.
+#### 2. `get_csv_file_sizes.py` - Enriching Local Data
+
+To facilitate accurate matching between the local CSV and the scraped Tithely data, it's useful to have the audio file sizes for the local records. This script generates that information.
+
+**Usage:**
+-   It reads `sermons.csv` and generates a new file, `csv_audio_sizes.csv`, containing the `post_id`, `audio_url`, and `audio_file_size`.
     ```bash
-    python tithely_metadata_update/add_file_sizes.py
+    ./get_csv_file_sizes.py
     ```
+
+#### 3. `compare_data.py` - Gap Analysis
+
+This script provides a detailed comparison between the local `sermons.csv` file and a scraped `sermon_index.json` file. It helps identify which sermons are missing from each source and highlights discrepancies in metadata for sermons that exist in both.
+
+**Usage:**
+-   The script automatically looks for `sermons.csv` and the latest `sermon_index_*.json` file.
+    ```bash
+    ./compare_data.py
+    ```
+
+#### 4. `tithely_updater.py` - The Updater (Future Work)
+
+The original `tithely_updater.py` script can be adapted to use the clean, enriched data from the `sermon_index.json` to perform bulk updates on the Tithely website. This has not yet been the focus of our work.
+

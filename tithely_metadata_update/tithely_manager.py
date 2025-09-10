@@ -53,17 +53,24 @@ class TithelyManager:
         expect(self.page.locator("text=You are now logged in")).to_be_visible(timeout=15000)
         print("Login successful!")
 
-    def create_sermon_index(self, listing_url="/media/listing", full_details=False, with_audio_urls=False):
+    def create_sermon_index(self, listing_url="/media/listing", full_details=False, with_audio_urls=False, detail_scrape_limit=None):
         """Creates an index of all sermons with their slugs and page numbers."""
         self.page.goto(f"{self.base_url}{listing_url}")
         
         sermon_data_list = []
         current_page = 1
+        previous_url = ""
         while True:
-            print(f"Processing page {current_page}...")
+            if self.page.url == previous_url:
+                print("URL has not changed, assuming end of pagination.")
+                break
+            previous_url = self.page.url
+
+            print(f"Processing page {current_page} ({self.page.url})...")
             self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=10000)
             sermon_rows = self.page.locator("table.table-hover.table-align-middle.table-nowrap tr")
-            if not sermon_rows.count():
+            
+            if sermon_rows.count() <= 1: # A page with only a header row means no sermons
                 print("No more sermons found on this page.")
                 break
             
@@ -95,8 +102,14 @@ class TithelyManager:
                 sermon_data_list.append(sermon_data)
 
             if current_page > 140:  # Safety limit
-                print("Reached the end of the sermon list. Stopping index creation.")
+                print("Reached the safety page limit. Stopping index creation.")
                 break
+            
+            # Stop collecting if we have enough for a limited detail scrape
+            if full_details and detail_scrape_limit is not None and len(sermon_data_list) >= detail_scrape_limit:
+                print(f"Collected {len(sermon_data_list)} sermons, stopping pagination to begin detail scrape.")
+                break
+
             next_button = self.page.get_by_role("link", name="→")
             if next_button.is_enabled():
                 next_button.click()
@@ -111,23 +124,67 @@ class TithelyManager:
                 sermon_data['audio_url'] = self.get_audio_download_url(sermon_data['detail_page_url'])
 
         if full_details:
-            for sermon_data in sermon_data_list:
-                sermon_data.update(self.get_sermon_details(sermon_data['detail_page_url']))
+            sermons_to_scrape = sermon_data_list
+            if detail_scrape_limit is not None:
+                print(f"Fetching full details for a maximum of {detail_scrape_limit} sermons...")
+                sermons_to_scrape = sermon_data_list[:detail_scrape_limit]
+            
+            for sermon_data in sermons_to_scrape:
+                details = self.get_sermon_details(sermon_data['detail_page_url'], sermon_data['slug'])
+                sermon_data.update(details)
 
         return sermon_data_list
 
-    def get_sermon_details(self, sermon_url: str) -> dict:
-        """Gets additional details from a sermon detail page."""
-        print(f"Getting full details from: {sermon_url}")
-        self.page.goto(f"{self.base_url}{sermon_url}")
-        
-        # NOTE: This is a placeholder. We need to inspect the sermon page
-        # to determine what additional details are available and how to scrape them.
+    def get_sermon_details(self, sermon_url: str, slug: str) -> dict:
+        """Gets additional details from a sermon detail page and saves the DOM."""
         details = {
-            "description": self.page.locator(".sermon-description").first.inner_text().strip() if self.page.locator(".sermon-description").count() > 0 else "",
+            "bible_passage": "",
+            "description": ""
         }
+        try:
+            print(f"Getting full details from: {sermon_url}")
+            self.page.goto(f"{self.base_url}{sermon_url}", timeout=30000)
+
+            # Wait for the main content to be attached to the DOM, using user's selector
+            self.page.wait_for_selector(".article.mt-3", state="attached", timeout=15000)
+
+            # Save DOM for reference
+            dom_capture_dir = "dom_captures"
+            os.makedirs(dom_capture_dir, exist_ok=True)
+            with open(os.path.join(dom_capture_dir, f"{slug}.html"), "w") as f:
+                f.write(self.page.content())
+
+            # Scrape Bible Passage using user's specific instructions
+            passage_container_locator = self.page.locator("div.py-3:has(h2:text-is('Bible Passage'))")
+            
+            bible_passage = ""
+            if passage_container_locator.count() > 0:
+                # Use JavaScript evaluation to get the direct child text node
+                bible_passage = passage_container_locator.evaluate("""
+                    element => {
+                        let passage = '';
+                        for (const node of element.childNodes) {
+                            if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== '') {
+                                passage = node.textContent.trim();
+                                break;
+                            }
+                        }
+                        return passage;
+                    }
+                """)
+            
+            details["bible_passage"] = bible_passage
+                
+            # Scrape Description using user's selector
+            description_locator = self.page.locator(".article.mt-3")
+            if description_locator.count() > 0:
+                # Assuming the description is the first <p> inside the container
+                details["description"] = description_locator.locator("p").first.inner_text().strip()
+
+        except Exception as e:
+            print(f"❌ Could not process page {sermon_url}. Error: {e}")
+            # Return empty details, the main loop will continue
         
-        self.page.go_back()
         return details
 
     def get_audio_download_url(self, sermon_url: str) -> str:

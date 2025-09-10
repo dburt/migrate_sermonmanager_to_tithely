@@ -7,6 +7,7 @@ import os
 import sys
 import argparse
 from collections import defaultdict
+from datetime import datetime
 from tithely_manager import TithelyManager
 
 # --- CONFIGURATION ---
@@ -22,6 +23,8 @@ def parse_arguments():
     parser.add_argument("--local-sermons", default="sermons.json", help="Path to the local sermons JSON file.")
     parser.add_argument("--sermon-index", default="sermon_index.json", help="Path to the sermon index JSON file.")
     parser.add_argument("--create-index", action="store_true", help="Create a new sermon index from Tithe.ly.")
+    parser.add_argument("--full-details", action="store_true", help="Fetch full details from sermon pages.")
+    parser.add_argument("--limit", type=int, default=None, help="Limit the number of detail pages to scrape. Default is all.")
     parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without making any changes.")
     return parser.parse_args()
 
@@ -34,13 +37,20 @@ def main():
         return
 
     if args.create_index:
-        print("Creating a new sermon index from Tithe.ly...")
+        print("Creating a new sermon index from Tithe.ly list pages...")
         with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, HEADLESS_MODE) as manager:
             manager.login()
-            sermon_index = manager.create_sermon_index(with_audio_urls=True)
-            with open(args.sermon_index, "w") as f:
+            sermon_index = manager.create_sermon_index(
+                full_details=args.full_details, 
+                detail_scrape_limit=args.limit
+            )
+            
+            datestamp = datetime.now().strftime("%Y-%m-%d")
+            output_filename = f"sermon_index_{datestamp}.json"
+            
+            with open(output_filename, "w") as f:
                 json.dump(sermon_index, f, indent=4)
-            print(f"Sermon index with {len(sermon_index)} entries created at {args.sermon_index}")
+            print(f"Sermon index with {len(sermon_index)} entries created at {output_filename}")
         return
 
     if not os.path.exists(args.local_sermons):

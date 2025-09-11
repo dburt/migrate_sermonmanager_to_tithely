@@ -5,7 +5,7 @@ import os
 from tqdm import tqdm
 
 # --- Configuration ---
-INPUT_CSV_PATH = 'sermons.csv'
+INPUT_CSV_PATH = 'sermons_cleaned_2025-08-28_23-29-06.csv'
 OUTPUT_CSV_PATH = 'csv_audio_sizes.csv'
 # ---------------------
 

@@ -6,6 +6,7 @@ import json
 import os
 import sys
 import argparse
+import pandas as pd
 from collections import defaultdict
 from datetime import datetime
 from tithely_manager import TithelyManager
@@ -14,19 +15,20 @@ from tithely_manager import TithelyManager
 TITHELY_EMAIL = os.environ.get("TITHELY_EMAIL")
 TITHELY_PASSWORD = os.environ.get("TITHELY_PASSWORD")
 BRAVE_EXECUTABLE_PATH = "/usr/bin/brave-browser"
-HEADLESS_MODE = False
 # ---------------------
 
 def parse_arguments():
     """Parses command-line arguments."""
     parser = argparse.ArgumentParser(description="Selectively import and update sermons in Tithe.ly.")
-    parser.add_argument("--local-sermons", default="sermons.json", help="Path to the local sermons JSON file.")
     parser.add_argument("--sermon-index", default="sermon_index.json", help="Path to the sermon index JSON file.")
+    parser.add_argument("--csv-sermons", default="sermons_cleaned_v2.csv", help="Path to the cleaned local sermons CSV file.")
     parser.add_argument("--create-index", action="store_true", help="Create a new sermon index from Tithe.ly.")
     parser.add_argument("--enrich", action="store_true", help="Enrich with details and audio URL from sermon pages.")
     parser.add_argument("--with-file-sizes", action="store_true", help="Fetch audio file sizes (requires --enrich).")
-    parser.add_argument("--limit", type=int, default=None, help="Limit the number of sermons to enrich. Default is all.")
-    parser.add_argument("--dry-run", action="store_true", help="Perform a dry run without making any changes.")
+    parser.add_argument("--update", action="store_true", help="Update sermons in Tithe.ly with data from the local CSV.")
+    parser.add_argument("--limit", type=int, default=None, help="Limit the number of sermons to process.")
+    parser.add_argument("--headless", action="store_true", help="Run the browser in headless mode.")
+    parser.add_argument("--debug", action="store_true", help="Open a browser in debug mode on a specific sermon.")
     return parser.parse_args()
 
 def main():
@@ -37,9 +39,11 @@ def main():
         print("❌ ERROR: Please provide TITHELY_EMAIL and TITHELY_PASSWORD as environment variables.")
         return
 
+    headless_mode = args.headless if not args.debug else False
+
     if args.create_index:
         print("Creating a new sermon index from Tithe.ly list pages...")
-        with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, HEADLESS_MODE) as manager:
+        with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, headless_mode) as manager:
             manager.login()
             sermon_index = manager.create_sermon_index(
                 enrich_details=args.enrich,
@@ -55,113 +59,122 @@ def main():
             print(f"Sermon index with {len(sermon_index)} entries created at {output_filename}")
         return
 
-    if not os.path.exists(args.local_sermons):
-        print(f"❌ ERROR: Local sermons file not found at {args.local_sermons}")
+    if args.debug:
+        print("--- Running in Debug Mode ---")
+        
+        sermon_index_path = args.sermon_index
+        csv_audio_sizes_path = "csv_audio_sizes.csv"
+
+        if not os.path.exists(sermon_index_path):
+            print(f"❌ ERROR: Sermon index file not found at {sermon_index_path}. Use --create-index to create it first.")
+            return
+        if not os.path.exists(csv_audio_sizes_path):
+            print(f"❌ ERROR: CSV audio sizes file not found at {csv_audio_sizes_path}. Please generate it first.")
+            return
+
+        with open(sermon_index_path, 'r') as f:
+            sermon_index = json.load(f)
+        
+        if not sermon_index:
+            print("Sermon index is empty. Nothing to debug.")
+            return
+
+        csv_sizes_df = pd.read_csv(csv_audio_sizes_path)
+        csv_audio_sizes = set(csv_sizes_df['audio_file_size'].dropna().astype(int))
+
+        target_sermon = None
+        for sermon in sermon_index:
+            if sermon.get('audio_file_size') in csv_audio_sizes:
+                target_sermon = sermon
+                break
+        
+        if not target_sermon:
+            print("❌ Could not find a sermon in the index that has a matching entry in the CSV audio sizes file.")
+            return
+            
+        print(f"Targeting sermon: '{target_sermon['title']}' (Size: {target_sermon['audio_file_size']}) for debugging.")
+
+        with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, False) as manager:
+            manager.debug_sermon_page(target_sermon['page_url'], target_sermon['edit_url'])
         return
 
-    if not os.path.exists(args.sermon_index):
-        print(f"❌ ERROR: Sermon index file not found at {args.sermon_index}. Use --create-index to create it.")
-        return
+    if args.update:
+        print("--- Starting Sermon Update ---")
+        
+        sermon_index_path = args.sermon_index
+        csv_sermons_path = args.csv_sermons
+        csv_audio_sizes_path = "csv_audio_sizes.csv"
 
-    with open(args.local_sermons, 'r') as f:
-        local_sermons = json.load(f)
+        if not os.path.exists(sermon_index_path):
+            print(f"❌ ERROR: Sermon index file not found at {sermon_index_path}.")
+            return
+        if not os.path.exists(csv_sermons_path):
+            print(f"❌ ERROR: Local sermons CSV file not found at {csv_sermons_path}.")
+            return
+        if not os.path.exists(csv_audio_sizes_path):
+            print(f"❌ ERROR: CSV audio sizes file not found at {csv_audio_sizes_path}.")
+            return
 
-    with open(args.sermon_index, 'r') as f:
-        online_sermons = json.load(f)
+        # Load data
+        online_sermons_df = pd.DataFrame(json.load(open(sermon_index_path)))
+        local_sermons_df = pd.read_csv(csv_sermons_path)
+        csv_audio_sizes_df = pd.read_csv(csv_audio_sizes_path)
 
-    print(f"Loaded {len(local_sermons)} local sermons and {len(online_sermons)} online sermons.")
+        # Ensure post_id is of the same type before merging
+        local_sermons_df['post_id'] = local_sermons_df['post_id'].astype(int)
+        csv_audio_sizes_df['post_id'] = csv_audio_sizes_df['post_id'].astype(int)
 
-    # --- Comparison Logic ---
-    local_sermons_by_title = defaultdict(list)
-    for s in local_sermons:
-        local_sermons_by_title[s['title']].append(s)
+        # Add audio_file_size to local_sermons_df
+        local_sermons_df = pd.merge(
+            local_sermons_df,
+            csv_audio_sizes_df,
+            on='post_id',
+            how='left'
+        )
+        
+        # Merge dataframes
+        merged_df = pd.merge(
+            online_sermons_df, 
+            local_sermons_df, 
+            left_on='audio_file_size', 
+            right_on='audio_file_size',
+            suffixes=('_online', '_local')
+        )
+        
+        # Rename columns for clarity
+        merged_df = merged_df.rename(columns={
+            'title_local': 'title',
+            'sermon_series_local': 'sermon_series',
+            'bible_passage_local': 'bible_passage'
+        })
 
-    online_sermons_by_title = defaultdict(list)
-    for s in online_sermons:
-        online_sermons_by_title[s['title']].append(s)
+        sermons_to_update = merged_df.to_dict('records')
+        
+        if args.limit:
+            sermons_to_update = sermons_to_update[:args.limit]
+            
+        print(f"Found {len(sermons_to_update)} sermons to update.")
 
-    needs_update = []
-    local_only = []
-    online_only = set(s['title'] for s in online_sermons)
+        if not sermons_to_update:
+            return
 
-    with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, HEADLESS_MODE) as manager:
-        for title, local_sermon_list in local_sermons_by_title.items():
-            if title in online_sermons_by_title:
-                online_sermon_list = online_sermons_by_title[title]
-                online_only.discard(title)
-
-                if len(local_sermon_list) > 1 or len(online_sermon_list) > 1:
-                    # Handle duplicates with file size matching
-                    for local_sermon in local_sermon_list:
-                        found_match = False
-                        for online_sermon in online_sermon_list:
-                            if 'file_size_bytes' not in online_sermon:
-                                online_sermon['file_size_bytes'] = manager.get_file_size(online_sermon['audio_url'])
-                            
-                            if local_sermon.get('file_size_bytes') == online_sermon.get('file_size_bytes'):
-                                if needs_update_check(local_sermon, online_sermon):
-                                    needs_update.append((local_sermon, online_sermon))
-                                found_match = True
-                                break
-                        if not found_match:
-                            local_only.append(local_sermon)
-                else:
-                    # Only one sermon with this title, compare directly
-                    local_sermon = local_sermon_list[0]
-                    online_sermon = online_sermon_list[0]
-                    if needs_update_check(local_sermon, online_sermon):
-                        needs_update.append((local_sermon, online_sermon))
-            else:
-                local_only.extend(local_sermon_list)
-
-    print("\n--- Comparison Report ---")
-    print(f"{len(needs_update)} sermons need updating.")
-    print(f"{len(local_only)} sermons are local-only.")
-    print(f"{len(online_only)} sermons are online-only.")
-
-    if args.dry_run:
-        print("\nDry run complete. No changes were made.")
-        return
-
-    # --- Update Logic ---
-    if needs_update and not args.dry_run:
-        print("\nUpdating sermons...")
         updates_by_page = defaultdict(list)
-        for local_sermon, online_sermon in needs_update:
-            update_data = {**local_sermon, **online_sermon}
-            updates_by_page[online_sermon['page_url']].append(update_data)
+        for sermon in sermons_to_update:
+            updates_by_page[sermon['page_url']].append(sermon)
 
-        with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, HEADLESS_MODE) as manager:
+        with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, headless_mode) as manager:
             manager.login()
-            for page_url, sermons_to_update in updates_by_page.items():
-                print(f"\n--- Navigating to page: {page_url} ---")
-                manager.page.goto(page_url)
-                for sermon in sermons_to_update:
-                    try:
-                        print(f"Processing sermon: {sermon['title']}")
-                        edit_button = manager.page.locator(f"a.js-sermon-form-link[href^='{sermon['edit_url']}/edit']")
-                        edit_button.click()
-                        
-                        manager.fill_and_submit_sermon_form(sermon)
-                        
-                        manager.page.goto(page_url)
-
-                    except Exception as e:
-                        print(f"❌ An error occurred while processing '{sermon.get('title', 'Unknown Sermon')}': {e}")
-                        print("Reloading the page to recover...")
-                        manager.page.reload()
-                        print(f"Current URL: {manager.page.url}")
+            for page_url, sermons in updates_by_page.items():
+                print(f"--- Processing page: {page_url} ---")
+                for sermon_data in sermons:
+                    print(f"Updating sermon: {sermon_data['title']}")
+                    print(f"Sermon data: {sermon_data}")
+                    success = manager.update_sermon(sermon_data)
+                    if not success:
+                        print(f"❌ Failed to update sermon: {sermon_data['title']}")
 
         print("\n🎉 All sermons have been processed.")
-
-def needs_update_check(local_sermon, online_sermon):
-    """Checks if an online sermon needs to be updated based on local data."""
-    return (
-        local_sermon.get("preacher") != online_sermon.get("speaker") or
-        local_sermon.get("sermon_series") != online_sermon.get("sermon_series") or
-        local_sermon.get("bible_passage") != online_sermon.get("bible_passage")
-    )
-
+        return
 
 if __name__ == "__main__":
     main()

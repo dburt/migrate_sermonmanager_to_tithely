@@ -202,15 +202,29 @@ class TithelyManager:
         form_locator = self.page.locator("form[id^='edit_sermon_']")
         expect(form_locator).to_be_visible(timeout=10000)
         print("Form is visible. Filling details...")
+
+        post_id = sermon_data.get("post_id")
+        post_id_tag = f"[post_id={post_id}]" if post_id else ""
+
+        # Fill title
         form_locator.locator("#sermon_title").fill(sermon_data.get("title", ""))
-        form_locator.locator("#sermon_subtitle").fill("")
+        
+        # Fill subtitle with post_id tag
+        if post_id_tag:
+            form_locator.locator("#sermon_subtitle").fill(post_id_tag)
+
+        # Fill speaker
         speaker_name = sermon_data.get("preacher", "Guest Speaker")
         speaker_select = form_locator.locator("#sermon_speaker_id")
         try:
             speaker_select.select_option(label=speaker_name, timeout=2000)
         except Exception:
             speaker_select.select_option(label="Guest Speaker")
+
+        # Fill podcast
         form_locator.locator("#sermon_podcast_id").select_option(value="5")
+
+        # Fill series
         series_name = sermon_data.get("sermon_series", "")
         series_select = form_locator.locator("#sermon_series_id")
         if series_select:
@@ -221,7 +235,37 @@ class TithelyManager:
                 print(f"Series '{series_name}' not found. Creating new one.")
                 series_select.select_option(value="new")
                 form_locator.locator("#sermon_series_title").fill(series_name)
+
+        # Fill bible passage
         form_locator.locator('[name="sermon[passages]"]').fill(sermon_data.get("bible_passage", ""))
+
+        # Construct and fill description
+        content_text = sermon_data.get('content_text', '')
+        preacher = sermon_data.get('preacher', 'the speaker')
+        title = sermon_data.get('title', 'the sermon')
+        sermon_series = sermon_data.get('sermon_series', 'this series')
+        bible_passage = sermon_data.get('bible_passage', 'the Bible')
+        
+        description_parts = []
+        if content_text and pd.notna(content_text):
+            description_parts.append(str(content_text))
+            
+        description_parts.append(f"In this sermon, {preacher} speaks on the theme of '{title}' as part of the series '{sermon_series}'.")
+        description_parts.append(f"The bible reading is {bible_passage}.")
+        if post_id_tag:
+            description_parts.append(post_id_tag)
+            
+        new_description = " ".join(description_parts)
+
+        # Use TinyMCE API to set the content
+        self.page.evaluate("""
+            (newContent) => {
+                var editor = tinymce.get('sermon_topic');
+                editor.setContent('<p>' + newContent.replace(/\\n/g, '<br>') + '</p>');
+            }
+        """, new_description)
+        print("Updated description via TinyMCE API.")
+
         print("Submitting the form...")
         save_button = form_locator.locator("button[type='submit']:has-text('Save Sermon')")
         save_button.click()
@@ -231,6 +275,103 @@ class TithelyManager:
         except Exception:
             print("❌ ERROR: Could not confirm successful update. Check if the form was submitted correctly.")
             return
+
+    def update_sermon(self, sermon_data: dict):
+        """Navigates to a sermon's list page, opens the edit modal, and updates the sermon."""
+        
+        sermon_page_url = sermon_data['page_url']
+        sermon_edit_url = sermon_data['edit_url']
+
+        print(f"Navigating to sermon list page: {sermon_page_url}")
+        self.page.goto(sermon_page_url)
+        self.page.wait_for_load_state("networkidle")
+        self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=10000)
+
+        print("Finding sermon row...")
+        sermon_row_selector = f"tr:has(a.js-sermon-form-link[href^='{sermon_edit_url}'])"
+        sermon_row = self.page.locator(sermon_row_selector)
+        
+        if sermon_row.count() == 0:
+            print(f"❌ Could not find the sermon row on page {sermon_page_url}.")
+            return False
+
+        print("Hovering over sermon row to reveal actions...")
+        sermon_row.hover()
+
+        print("Finding and clicking the 'More' button for the sermon...")
+        more_button_selector = "button[data-toggle='dropdown'][title='More']"
+        more_button = sermon_row.locator(more_button_selector)
+        
+        if more_button.count() == 0:
+            print("❌ Could not find the 'More' button in the sermon row.")
+            return False
+            
+        more_button.click()
+
+        print("Finding and clicking the edit button...")
+        edit_selector = f"a.js-sermon-form-link[href^='{sermon_edit_url}']"
+        edit_button = self.page.locator(edit_selector)
+        
+        if edit_button.count() == 0:
+            print("❌ Could not find the edit button after clicking 'More'.")
+            return False
+
+        edit_button.click()
+        
+        self.fill_and_submit_sermon_form(sermon_data)
+        return True
+
+    def debug_sermon_page(self, sermon_page_url: str, sermon_edit_url: str):
+        """Navigates to a sermon's list page, opens the edit modal, and saves the DOM."""
+        print("--- Starting Debug Mode ---")
+        self.login()
+        
+        print(f"Navigating to sermon list page: {sermon_page_url}")
+        self.page.goto(sermon_page_url)
+        self.page.wait_for_load_state("networkidle")
+
+        print("Finding sermon row...")
+        sermon_row_selector = f"tr:has(a.js-sermon-form-link[href^='{sermon_edit_url}'])"
+        sermon_row = self.page.locator(sermon_row_selector)
+        
+        if sermon_row.count() == 0:
+            print("❌ Could not find the sermon row on the page.")
+            return
+
+        print("Hovering over sermon row to reveal actions...")
+        sermon_row.hover()
+
+        print("Finding and clicking the 'More' button for the sermon...")
+        more_button_selector = "button[data-toggle='dropdown'][title='More']"
+        more_button = sermon_row.locator(more_button_selector)
+        
+        if more_button.count() == 0:
+            print("❌ Could not find the 'More' button in the sermon row.")
+            return
+            
+        more_button.click()
+
+        print("Finding and clicking the edit button...")
+        edit_selector = f"a.js-sermon-form-link[href^='{sermon_edit_url}']"
+        edit_button = self.page.locator(edit_selector)
+        
+        if edit_button.count() == 0:
+            print("❌ Could not find the edit button after clicking 'More'.")
+            return
+
+        edit_button.click()
+        
+        print("Waiting for edit modal to load...")
+        form_locator = self.page.locator("form[id^='edit_sermon_']")
+        expect(form_locator).to_be_visible(timeout=10000)
+        
+        print("Dumping DOM to disk...")
+        os.makedirs("dom_captures", exist_ok=True)
+        with open("dom_captures/edit_modal.html", "w") as f:
+            f.write(self.page.content())
+        
+        print("DOM saved to dom_captures/edit_modal.html")
+        print("Quitting browser.")
 
 
 if __name__ == "__main__":

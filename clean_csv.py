@@ -79,6 +79,8 @@ def main():
         header = next(reader)
         fieldnames = header + ['melbourne_time']
         for row_values in reader:
+            if row_values and row_values[0] == 'post_id':
+                continue # Skip extra header rows
             if len(row_values) > len(header):
                 problematic_rows.append(row_values)
             elif len(row_values) == len(header):

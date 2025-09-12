@@ -54,12 +54,16 @@ class TithelyManager:
         expect(self.page.locator("text=You are now logged in")).to_be_visible(timeout=15000)
         print("Login successful!")
 
-    def create_sermon_index(self, listing_url="/media/listing", enrich_details=False, detail_scrape_limit=None, with_file_sizes=False):
+    def create_sermon_index(self, listing_url="/media/listing", enrich_details=False, detail_scrape_limit=None, with_file_sizes=False, start_page=1):
         """Creates an index of all sermons, optionally enriching it with details from each sermon's page."""
-        self.page.goto(f"{self.base_url}{listing_url}")
+        if start_page > 1:
+            print(f"Jumping to page {start_page}...")
+            self.page.goto(f"{self.base_url}{listing_url}?page={start_page}")
+        else:
+            self.page.goto(f"{self.base_url}{listing_url}")
         
         sermon_data_list = []
-        current_page = 1
+        current_page = start_page
         previous_url = ""
         while True:
             if self.page.url == previous_url:
@@ -237,40 +241,46 @@ class TithelyManager:
                 form_locator.locator("#sermon_series_title").fill(series_name)
 
         # Fill bible passage
-        form_locator.locator('[name="sermon[passages]"]').fill(sermon_data.get("bible_passage", ""))
+        bible_passage = sermon_data.get('bible_passage')
+        if bible_passage and pd.notna(bible_passage):
+            form_locator.locator('[name="sermon[passages]"]').fill(bible_passage)
 
         # Construct and fill description
         content_text = sermon_data.get('content_text', '')
         preacher = sermon_data.get('preacher', 'the speaker')
         title = sermon_data.get('title', 'the sermon')
         sermon_series = sermon_data.get('sermon_series', 'this series')
-        bible_passage = sermon_data.get('bible_passage', 'the Bible')
         
         description_parts = []
         if content_text and pd.notna(content_text):
             description_parts.append(str(content_text))
             
         description_parts.append(f"In this sermon, {preacher} speaks on the theme of '{title}' as part of the series '{sermon_series}'.")
-        description_parts.append(f"The bible reading is {bible_passage}.")
+        if bible_passage and pd.notna(bible_passage):
+            description_parts.append(f"The bible reading is {bible_passage}.")
         if post_id_tag:
             description_parts.append(post_id_tag)
             
         new_description = " ".join(description_parts)
 
-        # Use TinyMCE API to set the content
-        self.page.evaluate("""
-            (newContent) => {
-                var editor = tinymce.get('sermon_topic');
-                editor.setContent('<p>' + newContent.replace(/\\n/g, '<br>') + '</p>');
-            }
-        """, new_description)
-        print("Updated description via TinyMCE API.")
+        try:
+            # Use TinyMCE API to set the content
+            self.page.evaluate("""
+                (newContent) => {
+                    var editor = tinymce.get('sermon_topic');
+                    editor.setContent('<p>' + newContent.replace(/\\n/g, '<br>') + '</p>');
+                }
+            """, new_description)
+            print("Updated description via TinyMCE API.")
+        except Exception as e:
+            print(f"❌ ERROR: Could not update description via TinyMCE API. Error: {e}")
+            form_locator.locator("#sermon_topic").fill(new_description)
 
         print("Submitting the form...")
         save_button = form_locator.locator("button[type='submit']:has-text('Save Sermon')")
         save_button.click()
         try:
-            expect(self.page.locator("text=Updated Sermon")).to_be_visible(timeout=20000)
+            expect(self.page.locator("text=Updated Sermon")).to_be_visible(timeout=10000)
             print(f"✅ Successfully updated: {sermon_data.get('title')}")
         except Exception:
             print("❌ ERROR: Could not confirm successful update. Check if the form was submitted correctly.")

@@ -29,6 +29,7 @@ def parse_arguments():
     parser.add_argument("--limit", type=int, default=None, help="Limit the number of sermons to process.")
     parser.add_argument("--headless", action="store_true", help="Run the browser in headless mode.")
     parser.add_argument("--debug", action="store_true", help="Open a browser in debug mode on a specific sermon.")
+    parser.add_argument("--start-page", type=int, default=1, help="Page number to start sermon indexing from.")
     return parser.parse_args()
 
 def main():
@@ -48,7 +49,8 @@ def main():
             sermon_index = manager.create_sermon_index(
                 enrich_details=args.enrich,
                 detail_scrape_limit=args.limit,
-                with_file_sizes=args.with_file_sizes
+                with_file_sizes=args.with_file_sizes,
+                start_page=args.start_page
             )
             
             datestamp = datetime.now().strftime("%Y-%m-%d")
@@ -162,9 +164,33 @@ def main():
         for sermon in sermons_to_update:
             updates_by_page[sermon['page_url']].append(sermon)
 
+        pages_to_process = sorted(updates_by_page.keys())
+        
+        if args.start_page > 1:
+            sermon_index_path = args.sermon_index
+            if os.path.exists(sermon_index_path):
+                with open(sermon_index_path, 'r') as f:
+                    sermon_index = json.load(f)
+                
+                start_page_url = None
+                for sermon in sermon_index:
+                    if sermon.get('page') == args.start_page:
+                        start_page_url = sermon.get('page_url')
+                        break
+                
+                if start_page_url and start_page_url in pages_to_process:
+                    start_index = pages_to_process.index(start_page_url)
+                    pages_to_process = pages_to_process[start_index:]
+                    print(f"Starting update from page {args.start_page} ({start_page_url}).")
+                else:
+                    print(f"Warning: Page {args.start_page} URL not found in sermons to update.")
+            else:
+                print(f"Warning: Sermon index not found at {sermon_index_path}. Cannot start from page {args.start_page}.")
+
         with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, headless_mode) as manager:
             manager.login()
-            for page_url, sermons in updates_by_page.items():
+            for page_url in pages_to_process:
+                sermons = updates_by_page[page_url]
                 print(f"--- Processing page: {page_url} ---")
                 for sermon_data in sermons:
                     print(f"Updating sermon: {sermon_data['title']}")

@@ -53,7 +53,7 @@ def main():
                 start_page=args.start_page
             )
             
-            datestamp = datetime.now().strftime("%Y-%m-%d")
+            datestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
             output_filename = f"sermon_index_{datestamp}.json"
             
             with open(output_filename, "w") as f:

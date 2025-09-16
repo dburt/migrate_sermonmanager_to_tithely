@@ -39,7 +39,7 @@ def main():
 
         if index_only or not os.path.exists(SERMON_INDEX_PATH):
             print("Creating sermon index...")
-            sermon_index = manager.create_sermon_index(enrich_details=full_details)
+            sermon_index = manager.create_sermon_index(enrich_details=full_details, with_file_sizes=full_details)
             with open(SERMON_INDEX_PATH, "w") as index_file:
                 json.dump(sermon_index, index_file, indent=4)
             print(f"Found {len(sermon_index)} sermons in the index.")

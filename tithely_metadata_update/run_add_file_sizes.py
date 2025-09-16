@@ -7,7 +7,12 @@ import os
 from tithely_manager import TithelyManager
 
 # --- CONFIGURATION ---
-JSON_FILE_PATH = "../sermons.json"
+# Get the directory of the script
+script_dir = os.path.dirname(os.path.abspath(__file__))
+# Go one level up to the project root
+project_root = os.path.dirname(script_dir)
+
+JSON_FILE_PATH = os.path.join(project_root, "sermon_index.json")
 # ---------------------
 
 def main():

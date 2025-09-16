@@ -313,7 +313,7 @@ class TithelyManager:
         more_button = sermon_row.locator(more_button_selector)
         
         if more_button.count() == 0:
-            print("❌ Could not find the 'More' button in the sermon row.")
+            print(f"❌ Could not find the 'More' button in the sermon row.")
             return False
             
         more_button.click()
@@ -323,12 +323,51 @@ class TithelyManager:
         edit_button = self.page.locator(edit_selector)
         
         if edit_button.count() == 0:
-            print("❌ Could not find the edit button after clicking 'More'.")
+            print(f"❌ Could not find the edit button after clicking 'More'.")
             return False
 
         edit_button.click()
         
         self.fill_and_submit_sermon_form(sermon_data)
+        return True
+
+    def delete_sermon(self, sermon_data: dict):
+        """Navigates to a sermon's list page, opens the dropdown, and deletes the sermon."""
+        sermon_page_url = sermon_data['page_url']
+        detail_page_url = sermon_data['detail_page_url']
+
+        print(f"Navigating to sermon list page: {sermon_page_url}")
+        self.page.goto(sermon_page_url)
+        self.page.wait_for_load_state("networkidle")
+
+        sermon_row_selector = f"tr:has(a[href='{detail_page_url}'])"
+        sermon_row = self.page.locator(sermon_row_selector)
+
+        if sermon_row.count() == 0:
+            print(f"❌ Could not find the sermon row on page {sermon_page_url} for sermon {sermon_data['title']}.")
+            return False
+
+        sermon_row.hover()
+
+        more_button_selector = "button[data-toggle='dropdown'][title='More']"
+        more_button = sermon_row.locator(more_button_selector)
+        more_button.click()
+
+        # Handle the confirmation dialog
+        self.page.on("dialog", lambda dialog: dialog.accept())
+
+        delete_selector = f"a[data-method='delete'][href='{detail_page_url}']"
+        delete_button = self.page.locator(delete_selector)
+        
+        if delete_button.count() == 0:
+            print(f"❌ Could not find the delete button for sermon {sermon_data['title']}.")
+            return False
+
+        delete_button.click()
+
+        # Wait for the deletion to complete. A good way to do this is to wait for the row to disappear.
+        expect(sermon_row).to_be_hidden(timeout=10000)
+        print(f"✅ Successfully deleted: {sermon_data.get('title')}")
         return True
 
     def debug_sermon_page(self, sermon_page_url: str, sermon_edit_url: str):

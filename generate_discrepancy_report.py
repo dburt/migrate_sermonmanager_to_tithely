@@ -4,7 +4,7 @@ import csv
 with open('sermons.json', 'r') as f:
     local_sermons = json.load(f)
 
-with open('tithely_metadata_update/sermon_index.json', 'r') as f:
+with open('sermon_index.json', 'r') as f:
     online_sermons = json.load(f)
 
 local_sermons_by_title = {s['title']: s for s in local_sermons}

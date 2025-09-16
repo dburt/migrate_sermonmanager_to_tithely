@@ -59,6 +59,13 @@ def main():
             with open(output_filename, "w") as f:
                 json.dump(sermon_index, f, indent=4)
             print(f"Sermon index with {len(sermon_index)} entries created at {output_filename}")
+
+            # Update symlink
+            symlink_path = "sermon_index.json"
+            if os.path.lexists(symlink_path):
+                os.remove(symlink_path)
+            os.symlink(output_filename, symlink_path)
+            print(f"Updated symlink '{symlink_path}' to point to '{output_filename}'")
         return
 
     if args.debug:

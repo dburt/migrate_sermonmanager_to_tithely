@@ -5,7 +5,7 @@ import os
 from tqdm import tqdm
 
 # --- Configuration ---
-INPUT_CSV_PATH = 'sermons_cleaned_2025-08-28_23-29-06.csv'
+INPUT_CSV_PATH = 'sermons.csv'
 OUTPUT_CSV_PATH = 'csv_audio_sizes.csv'
 # ---------------------
 
@@ -30,7 +30,7 @@ def main():
         print(f"ERROR: Input file not found at {INPUT_CSV_PATH}")
         return
 
-    df = pd.read_csv(INPUT_CSV_PATH, usecols=['post_id', 'audio_url'])
+    df = pd.read_csv(INPUT_CSV_PATH, usecols=['post_id', 'title', 'audio_url'])
     df.dropna(subset=['audio_url'], inplace=True)
     
     print(f"Found {len(df)} sermons with audio URLs.")

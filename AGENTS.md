@@ -1,0 +1,3 @@
+- Read the README.md and .gitignore and use ls to get your bearings.
+- We use `uv` to run python scripts directly (`./script.py` not `python script.py`).
+- Update NOTES.md to reflect current tasks and knowledge about the data, the system, challenges, and goals.

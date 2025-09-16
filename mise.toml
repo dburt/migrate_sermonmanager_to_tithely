@@ -1,3 +1,4 @@
 [tools]
 python = "latest"
 uv = "latest"
+ruby = "latest"

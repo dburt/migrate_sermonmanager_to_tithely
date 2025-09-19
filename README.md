@@ -51,16 +51,18 @@ graph LR
         H(generate_rss_feed.py)
         I(sermon-archive/stalfreds-sermons.html)
         J(transcribe.py)
-        K(tithely_metadata_update/tithely_updater.py)
-        L(tithely_metadata_update/run_analyzer.py)
+        K(tithely_metadata_update/run_updater.py)
+        L(tithely_metadata_update/find_duplicates.py)
+        M(tithely_metadata_update/delete_duplicates.py)
+        P(tithely_metadata_update/run_analyzer.py)
     end
 
     subgraph "Intermediate & Final Products"
         N("sermons_cleaned_*.csv")
         O("sermons_*.json")
-        P("podcast_feed_*.xml")
         Q("transcripts/*.txt")
         R("sermon_index.json")
+        S("duplicates_to_delete.json")
     end
 
     A_XML --> CONVERT
@@ -76,11 +78,13 @@ graph LR
     O --> H
     O --> I
     O --> J
-    O --> K
-    O --> L
-    K --> R
+    K -- --index-only --> R
     R --> L
-    H --> P
+    L --> S
+    S --> M
+    M -- deletes from Tithely --> K
+    R --> P
+    H --> podcast_feed_xml
     J --> Q
 ```
 
@@ -108,7 +112,7 @@ This is the main script to run the entire data pipeline. It cleans the source CS
 *   **Purpose:** Reads a CSV file from standard input, identifies service time from audio filename, adds melbourne date/time, makes titles unique, and removes redundant text from the `content_text` column.
 *   **Usage:**
     ```bash
-    python3 clean_csv.py input.csv output.csv
+    ./clean_csv.py input.csv output.csv
     ```
 
 **2. `convert_csv_to_json.py`**
@@ -116,7 +120,7 @@ This is the main script to run the entire data pipeline. It cleans the source CS
 *   **Purpose:** Converts a cleaned CSV file into a JSON file suitable for the sermon browser and other scripts.
 *   **Usage:**
     ```bash
-    python3 convert_csv_to_json.py <input_csv_path> <output_json_path>
+    ./convert_csv_to_json.py <input_csv_path> <output_json_path>
     ```
 
 **3. `generate_rss_feed.py`**
@@ -124,7 +128,7 @@ This is the main script to run the entire data pipeline. It cleans the source CS
 *   **Purpose:** Generates a podcast-compliant RSS feed (XML) from a JSON file.
 *   **Usage:**
     ```bash
-    python3 generate_rss_feed.py <input_json_path> <output_rss_path>
+    ./generate_rss_feed.py <input_json_path> <output_rss_path>
     ```
 
 ### Transcription
@@ -141,13 +145,13 @@ This is the main script to run the entire data pipeline. It cleans the source CS
 *   **Usage:**
     ```bash
     # Transcribe all sermons
-    python3 transcribe.py sermons.json
+    ./transcribe.py sermons.json
 
     # Transcribe a random sample of 5 sermons
-    python3 transcribe.py sermons.json --sample-size 5
+    ./transcribe.py sermons.json --sample-size 5
 
     # Transcribe a specific sermon by its exact title
-    python3 transcribe.py sermons.json --title "Council vs. King"
+    ./transcribe.py sermons.json --title "Council vs. King"
     ```
 
 ### Sermon Browser
@@ -172,53 +176,35 @@ Tithely's web interface does not provide a way to bulk-edit sermon metadata, suc
 
 ### The Solution: A Data-First Approach
 
-The scripts in this directory allow for a data-driven workflow: first, we scrape all available data from the Tithely website into a local JSON file (`sermon_index.json`). Then, we can analyze this data, compare it against our local CSV records, and finally use the enriched data to update Tithely.
+The scripts in this directory allow for a data-driven workflow. 
 
-This workflow is primarily managed by the following scripts:
+### Workflow
 
-#### 1. `selective_importer.py` - Scraper and Indexer
-
-This is the main script for scraping sermon data from the Tithely website. It logs in, navigates the sermon list pages, and creates a local JSON file (`sermon_index_YYYY-MM-DD.json`) containing the data. It can optionally enrich this data by visiting each sermon's detail page.
-
-**Usage:**
--   **Create a basic index:**
+1.  **Scrape Data:** Scrape all available data from the Tithely website into a local JSON file (`sermon_index.json`).
     ```bash
-    ./tithely_metadata_update/selective_importer.py --create-index
+    ./tithely_metadata_update/run_updater.py --index-only --full-details
     ```
--   **Create an enriched index (with description, passage, audio URL):**
-    ```bash
-    ./tithely_metadata_update/selective_importer.py --create-index --enrich
-    ```
--   **Create a full index (with details and file sizes):**
-    ```bash
-    ./tithely_metadata_update/selective_importer.py --create-index --enrich --with-file-sizes
-    ```
--   **Limit the number of sermons for testing:**
-    ```bash
-    ./tithely_metadata_update/selective_importer.py --create-index --enrich --limit 10
-    ```
-
-#### 2. `get_csv_file_sizes.py` - Enriching Local Data
-
-To facilitate accurate matching between the local CSV and the scraped Tithely data, it's useful to have the audio file sizes for the local records. This script generates that information.
-
-**Usage:**
--   It reads `sermons.csv` and generates a new file, `csv_audio_sizes.csv`, containing the `post_id`, `audio_url`, and `audio_file_size`.
+2.  **Enrich Local Data:** To facilitate accurate matching between the local CSV and the scraped Tithely data, it's useful to have the audio file sizes for the local records. This script generates that information.
     ```bash
     ./get_csv_file_sizes.py
     ```
-
-#### 3. `compare_data.py` - Gap Analysis
-
-This script provides a detailed comparison between the local `sermons.csv` file and a scraped `sermon_index.json` file. It helps identify which sermons are missing from each source and highlights discrepancies in metadata for sermons that exist in both.
-
-**Usage:**
--   The script automatically looks for `sermons.csv` and the latest `sermon_index_*.json` file.
-    ```bash
-    ./compare_data.py
-    ```
-
-#### 4. `tithely_updater.py` - The Updater (Future Work)
-
-The original `tithely_updater.py` script can be adapted to use the clean, enriched data from the `sermon_index.json` to perform bulk updates on the Tithely website. This has not yet been the focus of our work.
-
+3.  **Delete Duplicates (Optional):**
+    *   **Find Duplicates:** This script analyzes the `sermon_index.json` file to find duplicate sermons based on `audio_file_size`.
+        ```bash
+        ./tithely_metadata_update/find_duplicates.py
+        ```
+    *   **Delete Duplicates:** This script reads the `duplicates_to_delete.json` file and deletes the specified sermons from Tithely.
+        ```bash
+        ./tithely_metadata_update/delete_duplicates.py
+        ```
+4.  **Analyze or Update (Parallel Options):**
+    *   **Analyze:** These scripts provide a detailed comparison between the local `sermons.csv` file and a scraped `sermon_index.json` file. They help identify which sermons are missing from each source and highlights discrepancies in metadata for sermons that exist in both.
+        ```bash
+        ./tithely_metadata_update/run_analyzer.py
+        # Or
+        ./compare_data.py
+        ```
+    *   **Update:** This script will synchronize the metadata from `sermons.csv` to Tithely.
+        ```bash
+        ./tithely_metadata_update/run_updater.py
+        ```

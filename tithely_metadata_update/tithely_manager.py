@@ -333,7 +333,7 @@ class TithelyManager:
 
     def delete_sermon(self, sermon_data: dict):
         """Navigates to a sermon's list page, opens the dropdown, and deletes the sermon."""
-        sermon_page_url = sermon_data['page_url']
+        sermon_page_url = sermon_data['page_url'].split('#')[0]
         detail_page_url = sermon_data['detail_page_url']
 
         print(f"Navigating to sermon list page: {sermon_page_url}")
@@ -347,14 +347,13 @@ class TithelyManager:
             print(f"❌ Could not find the sermon row on page {sermon_page_url} for sermon {sermon_data['title']}.")
             return False
 
+        sermon_row.wait_for(state='visible', timeout=5000)
         sermon_row.hover()
 
         more_button_selector = "button[data-toggle='dropdown'][title='More']"
         more_button = sermon_row.locator(more_button_selector)
+        more_button.wait_for(state='visible', timeout=5000)
         more_button.click()
-
-        # Handle the confirmation dialog
-        self.page.on("dialog", lambda dialog: dialog.accept())
 
         delete_selector = f"a[data-method='delete'][href='{detail_page_url}']"
         delete_button = self.page.locator(delete_selector)
@@ -363,6 +362,7 @@ class TithelyManager:
             print(f"❌ Could not find the delete button for sermon {sermon_data['title']}.")
             return False
 
+        delete_button.wait_for(state='visible', timeout=5000)
         delete_button.click()
 
         # Wait for the deletion to complete. A good way to do this is to wait for the row to disappear.

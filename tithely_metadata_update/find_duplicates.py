@@ -3,23 +3,26 @@
 # find_duplicates.py
 
 import json
+import os
 import pandas as pd
 from collections import defaultdict
 
-JSON_FILE_PATH = "sermon_index.json"
-OUTPUT_FILE_PATH = "duplicates_to_delete.json"
+script_dir = os.path.dirname(os.path.abspath(__file__))
+project_root = os.path.dirname(script_dir)
+JSON_FILE_PATH = os.path.join(project_root, "sermon_index.json")
+OUTPUT_FILE_PATH = os.path.join(project_root, "duplicates_to_delete.json")
 
 def main():
-    """Finds duplicate sermons based on file_size_bytes."""
+    """Finds duplicate sermons based on audio_file_size."""
     with open(JSON_FILE_PATH, 'r') as f:
         sermons = json.load(f)
 
     df = pd.DataFrame(sermons)
-    df.dropna(subset=['file_size_bytes'], inplace=True)
-    df['file_size_bytes'] = df['file_size_bytes'].astype(int)
-    df = df[df['file_size_bytes'] > 0]
+    df.dropna(subset=['audio_file_size'], inplace=True)
+    df['audio_file_size'] = df['audio_file_size'].astype(int)
+    df = df[df['audio_file_size'] > 0]
 
-    duplicates = df[df.duplicated(subset=['file_size_bytes'], keep=False)]
+    duplicates = df[df.duplicated(subset=['audio_file_size'], keep=False)]
 
     if duplicates.empty:
         print("No duplicate sermons found.")
@@ -28,10 +31,10 @@ def main():
     print(f"Found {len(duplicates)} duplicate sermons.")
 
     # Sort by file size to group duplicates together
-    duplicates = duplicates.sort_values(by=['file_size_bytes', 'date'])
+    duplicates = duplicates.sort_values(by=['audio_file_size', 'date'])
 
     # We want to keep the oldest sermon and delete the rest
-    to_delete = duplicates.groupby('file_size_bytes').apply(lambda x: x.iloc[1:]).reset_index(drop=True)
+    to_delete = duplicates.groupby('audio_file_size').apply(lambda x: x.iloc[1:]).reset_index(drop=True)
 
     if to_delete.empty:
         print("No duplicates need to be deleted (only one sermon per file size).")
@@ -41,7 +44,10 @@ def main():
 
     print("\n--- Sermons to Delete ---")
     for _, row in to_delete.iterrows():
-        print(f"- Title: {row['title']}, Date: {row['date']}, Size: {row['file_size_bytes']}")
+        print(f"- Title: {row['title']}, Date: {row['date']}, Size: {row['audio_file_size']}")
+
+    # Sort by page number in descending order
+    to_delete = to_delete.sort_values(by=['page'], ascending=False)
 
     # Save the list of sermons to delete to a file
     to_delete.to_json(OUTPUT_FILE_PATH, orient='records', indent=4)

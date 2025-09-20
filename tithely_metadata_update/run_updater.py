@@ -6,6 +6,7 @@ import os
 import sys
 import json
 import argparse
+import pandas as pd
 from tithely_manager import TithelyManager
 from analysis_and_grouping import find_sermons_to_update
 
@@ -66,10 +67,6 @@ def main():
         for page_url, sermons_to_update in updates_by_page.items():
             if args.limit and processed_count >= args.limit:
                 break
-            
-            print(f"\n--- Navigating to page: {page_url} ---")
-            if not args.dry_run:
-                manager.page.goto(page_url)
 
             for sermon in sermons_to_update:
                 if args.limit and processed_count >= args.limit:
@@ -79,16 +76,18 @@ def main():
                 if args.dry_run:
                     print("  [DRY RUN] Would update the following fields:")
                     for discrepancy in sermon.get('discrepancies', []):
-                        print(f"    - {discrepancy}: '{sermon.get(discrepancy + '_local')}'")
+                        field_map = {
+                            'speaker': 'preacher',
+                            'series': 'sermon_series_local',
+                            'passage': 'bible_passage_local'
+                        }
+                        local_key = field_map.get(discrepancy, discrepancy + '_local')
+                        value = sermon.get(local_key)
+                        display_value = value if pd.notna(value) else "(empty)"
+                        print(f"    - {discrepancy}: '{display_value}'")
                 else:
                     try:
-                        edit_button = manager.page.locator(f"a.js-sermon-form-link[href^='{sermon['edit_url']}/edit']")
-                        edit_button.click()
-                        
-                        manager.fill_and_submit_sermon_form(sermon)
-                        
-                        manager.page.goto(page_url)
-
+                        manager.update_sermon(sermon)
                     except Exception as e:
                         print(f"❌ An error occurred while processing '{sermon.get('title_local', 'Unknown Sermon')}': {e}")
                         print("Reloading the page to recover...")

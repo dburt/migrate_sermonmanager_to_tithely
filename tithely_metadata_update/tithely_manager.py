@@ -51,7 +51,7 @@ class TithelyManager:
         self.page.locator('input[name="user[password]"]').fill(self.password)
         self.page.locator('button[type="submit"]').click()
         print("Login submitted. Waiting for dashboard...")
-        expect(self.page.locator("text=You are now logged in")).to_be_visible(timeout=15000)
+        expect(self.page.locator("text=You are now logged in")).to_be_visible(timeout=5000)
         print("Login successful!")
 
     def create_sermon_index(self, listing_url="/media/listing", enrich_details=False, detail_scrape_limit=None, with_file_sizes=False, start_page=1):
@@ -72,7 +72,7 @@ class TithelyManager:
             previous_url = self.page.url
 
             print(f"Processing page {current_page} ({self.page.url})...")
-            self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=10000)
+            self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=5000)
             sermon_rows = self.page.locator("table.table-hover.table-align-middle.table-nowrap tr")
             
             if sermon_rows.count() <= 1:
@@ -153,8 +153,8 @@ class TithelyManager:
         }
         try:
             # print(f"Processing detail page: {sermon_url}") # Too noisy for full run
-            self.page.goto(f"{self.base_url}{sermon_url}", timeout=30000)
-            self.page.wait_for_selector(".article.mt-3", state="attached", timeout=15000)
+            self.page.goto(f"{self.base_url}{sermon_url}", timeout=5000)
+            self.page.wait_for_selector(".article.mt-3", state="attached", timeout=5000)
 
             # Scrape Bible Passage
             passage_container_locator = self.page.locator("div.py-3:has(h2:text-is('Bible Passage'))")
@@ -192,7 +192,7 @@ class TithelyManager:
         if not isinstance(url, str) or not url.startswith('http'):
             return 0
         try:
-            response = requests.head(url, timeout=10, allow_redirects=True)
+            response = requests.head(url, timeout=5, allow_redirects=True)
             response.raise_for_status()
             file_size = response.headers.get('Content-Length')
             if file_size:
@@ -204,14 +204,16 @@ class TithelyManager:
     def fill_and_submit_sermon_form(self, sermon_data: dict):
         """Fills and submits the sermon form after the modal is opened."""
         form_locator = self.page.locator("form[id^='edit_sermon_']")
-        expect(form_locator).to_be_visible(timeout=10000)
+        expect(form_locator).to_be_visible(timeout=5000)
         print("Form is visible. Filling details...")
 
         post_id = sermon_data.get("post_id")
         post_id_tag = f"[post_id={post_id}]" if post_id else ""
 
         # Fill title
-        form_locator.locator("#sermon_title").fill(sermon_data.get("title", ""))
+        title = sermon_data.get("title_local", "")
+        if pd.notna(title) and title.strip():
+            form_locator.locator("#sermon_title").fill(title)
         
         # Fill subtitle with post_id tag
         if post_id_tag:
@@ -219,19 +221,20 @@ class TithelyManager:
 
         # Fill speaker
         speaker_name = sermon_data.get("preacher", "Guest Speaker")
-        speaker_select = form_locator.locator("#sermon_speaker_id")
-        try:
-            speaker_select.select_option(label=speaker_name, timeout=2000)
-        except Exception:
-            speaker_select.select_option(label="Guest Speaker")
+        if pd.notna(speaker_name) and speaker_name.strip():
+            speaker_select = form_locator.locator("#sermon_speaker_id")
+            try:
+                speaker_select.select_option(label=speaker_name, timeout=2000)
+            except Exception:
+                speaker_select.select_option(label="Guest Speaker")
 
         # Fill podcast
         form_locator.locator("#sermon_podcast_id").select_option(value="5")
 
         # Fill series
-        series_name = sermon_data.get("sermon_series", "")
-        series_select = form_locator.locator("#sermon_series_id")
-        if series_select:
+        series_name = sermon_data.get("sermon_series_local", "")
+        if pd.notna(series_name) and series_name.strip():
+            series_select = form_locator.locator("#sermon_series_id")
             try:
                 series_select.select_option(label=series_name, timeout=2000)
                 print(f"Selected existing series: {series_name}")
@@ -241,22 +244,22 @@ class TithelyManager:
                 form_locator.locator("#sermon_series_title").fill(series_name)
 
         # Fill bible passage
-        bible_passage = sermon_data.get('bible_passage')
-        if bible_passage and pd.notna(bible_passage):
+        bible_passage = sermon_data.get('bible_passage_local')
+        if pd.notna(bible_passage) and bible_passage.strip():
             form_locator.locator('[name="sermon[passages]"]').fill(bible_passage)
 
         # Construct and fill description
         content_text = sermon_data.get('content_text', '')
         preacher = sermon_data.get('preacher', 'the speaker')
-        title = sermon_data.get('title', 'the sermon')
-        sermon_series = sermon_data.get('sermon_series', 'this series')
+        title = sermon_data.get('title_local', 'the sermon')
+        sermon_series = sermon_data.get('sermon_series_local', 'this series')
         
         description_parts = []
-        if content_text and pd.notna(content_text):
+        if pd.notna(content_text) and content_text.strip():
             description_parts.append(str(content_text))
             
         description_parts.append(f"In this sermon, {preacher} speaks on the theme of '{title}' as part of the series '{sermon_series}'.")
-        if bible_passage and pd.notna(bible_passage):
+        if pd.notna(bible_passage) and bible_passage.strip():
             description_parts.append(f"The bible reading is {bible_passage}.")
         if post_id_tag:
             description_parts.append(post_id_tag)
@@ -268,7 +271,9 @@ class TithelyManager:
             self.page.evaluate("""
                 (newContent) => {
                     var editor = tinymce.get('sermon_topic');
-                    editor.setContent('<p>' + newContent.replace(/\\n/g, '<br>') + '</p>');
+                    if (editor) {
+                        editor.setContent(newContent);
+                    }
                 }
             """, new_description)
             print("Updated description via TinyMCE API.")
@@ -280,8 +285,8 @@ class TithelyManager:
         save_button = form_locator.locator("button[type='submit']:has-text('Save Sermon')")
         save_button.click()
         try:
-            expect(self.page.locator("text=Updated Sermon")).to_be_visible(timeout=10000)
-            print(f"✅ Successfully updated: {sermon_data.get('title')}")
+            expect(self.page.locator("text=Updated Sermon")).to_be_visible(timeout=5000)
+            print(f"✅ Successfully updated: {sermon_data.get('title_local')}")
         except Exception:
             print("❌ ERROR: Could not confirm successful update. Check if the form was submitted correctly.")
             return
@@ -295,10 +300,10 @@ class TithelyManager:
         print(f"Navigating to sermon list page: {sermon_page_url}")
         self.page.goto(sermon_page_url)
         self.page.wait_for_load_state("networkidle")
-        self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=10000)
+        self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=5000)
 
         print("Finding sermon row...")
-        sermon_row_selector = f"tr:has(a.js-sermon-form-link[href^='{sermon_edit_url}'])"
+        sermon_row_selector = f"tr:has(a.js-sermon-form-link[href='{sermon_edit_url}'])"
         sermon_row = self.page.locator(sermon_row_selector)
         
         if sermon_row.count() == 0:
@@ -319,7 +324,7 @@ class TithelyManager:
         more_button.click()
 
         print("Finding and clicking the edit button...")
-        edit_selector = f"a.js-sermon-form-link[href^='{sermon_edit_url}']"
+        edit_selector = f"a.js-sermon-form-link[href='{sermon_edit_url}']"
         edit_button = self.page.locator(edit_selector)
         
         if edit_button.count() == 0:
@@ -366,7 +371,7 @@ class TithelyManager:
         delete_button.click()
 
         # Wait for the deletion to complete. A good way to do this is to wait for the row to disappear.
-        expect(sermon_row).to_be_hidden(timeout=10000)
+        expect(sermon_row).to_be_hidden(timeout=5000)
         print(f"✅ Successfully deleted: {sermon_data.get('title')}")
         return True
 
@@ -412,7 +417,7 @@ class TithelyManager:
         
         print("Waiting for edit modal to load...")
         form_locator = self.page.locator("form[id^='edit_sermon_']")
-        expect(form_locator).to_be_visible(timeout=10000)
+        expect(form_locator).to_be_visible(timeout=5000)
         
         print("Dumping DOM to disk...")
         os.makedirs("dom_captures", exist_ok=True)

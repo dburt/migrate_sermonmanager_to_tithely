@@ -51,7 +51,7 @@ class TithelyManager:
         self.page.locator('input[name="user[password]"]').fill(self.password)
         self.page.locator('button[type="submit"]').click()
         print("Login submitted. Waiting for dashboard...")
-        expect(self.page.locator("text=You are now logged in")).to_be_visible(timeout=5000)
+        expect(self.page.locator("text=You are now logged in")).to_be_visible(timeout=15000)
         print("Login successful!")
 
     def create_sermon_index(self, listing_url="/media/listing", enrich_details=False, detail_scrape_limit=None, with_file_sizes=False, start_page=1):
@@ -72,7 +72,7 @@ class TithelyManager:
             previous_url = self.page.url
 
             print(f"Processing page {current_page} ({self.page.url})...")
-            self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=5000)
+            self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=10000)
             sermon_rows = self.page.locator("table.table-hover.table-align-middle.table-nowrap tr")
             
             if sermon_rows.count() <= 1:
@@ -153,8 +153,8 @@ class TithelyManager:
         }
         try:
             # print(f"Processing detail page: {sermon_url}") # Too noisy for full run
-            self.page.goto(f"{self.base_url}{sermon_url}", timeout=5000)
-            self.page.wait_for_selector(".article.mt-3", state="attached", timeout=5000)
+            self.page.goto(f"{self.base_url}{sermon_url}", timeout=30000)
+            self.page.wait_for_selector(".article.mt-3", state="attached", timeout=15000)
 
             # Scrape Bible Passage
             passage_container_locator = self.page.locator("div.py-3:has(h2:text-is('Bible Passage'))")
@@ -192,7 +192,7 @@ class TithelyManager:
         if not isinstance(url, str) or not url.startswith('http'):
             return 0
         try:
-            response = requests.head(url, timeout=5, allow_redirects=True)
+            response = requests.head(url, timeout=10, allow_redirects=True)
             response.raise_for_status()
             file_size = response.headers.get('Content-Length')
             if file_size:

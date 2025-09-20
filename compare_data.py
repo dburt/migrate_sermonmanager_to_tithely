@@ -2,48 +2,54 @@
 import pandas as pd
 import json
 import os
+from collections import Counter
 
 # --- File Paths ---
-csv_path = 'sermons.csv'
-json_path = 'sermon_index_2025-09-10.json'
+sermons_csv_path = 'sermons.csv'
+audio_sizes_csv_path = 'csv_audio_sizes.csv'
+json_path = 'sermon_index.json'
+report_path = 'discrepancy_report.csv'
 # ------------------
 
-def normalize_title(title):
-    """Basic normalization for matching titles."""
-    if not isinstance(title, str):
+def normalize_text(text):
+    """Basic normalization for matching text fields."""
+    if not isinstance(text, str):
         return ""
-    return title.lower().strip().replace('...', '').strip()
+    return text.lower().strip()
 
 def main():
-    print("--- Starting Comparison ---")
-    if not os.path.exists(csv_path):
-        print(f"ERROR: CSV file not found at {csv_path}")
-        return
-    if not os.path.exists(json_path):
-        print(f"ERROR: JSON file not found at {json_path}")
+    print("--- Starting Detailed Comparison by Audio File Size ---")
+
+    # --- Load Data ---
+    print("Loading data from CSVs and JSON...")
+    if not all(os.path.exists(p) for p in [sermons_csv_path, audio_sizes_csv_path, json_path]):
+        print("ERROR: One or more required data files are missing.")
         return
 
-    # Load data
-    print("Loading data from CSV and JSON...")
-    csv_df = pd.read_csv(csv_path)
+    sermons_df = pd.read_csv(sermons_csv_path)
+    audio_sizes_df = pd.read_csv(audio_sizes_csv_path)
     with open(json_path, 'r') as f:
         json_data = json.load(f)
-    
     json_df = pd.DataFrame(json_data)
-    
-    print(f"Loaded {len(csv_df)} sermons from CSV.")
-    print(f"Loaded {len(json_df)} sermons from JSON scrape.")
 
-    # --- Data Normalization ---
-    csv_df['norm_title'] = csv_df['title'].apply(normalize_title)
-    json_df['norm_title'] = json_df['title'].apply(normalize_title)
+    # --- Data Cleaning and Preparation ---
+    local_df = pd.merge(sermons_df, audio_sizes_df[['post_id', 'audio_file_size']], on='post_id', how='left')
+
+    local_df.dropna(subset=['audio_file_size'], inplace=True)
+    json_df.dropna(subset=['audio_file_size'], inplace=True)
+    
+    local_df['audio_file_size'] = local_df['audio_file_size'].astype(int)
+    json_df['audio_file_size'] = json_df['audio_file_size'].astype(int)
+
+    local_df = local_df[local_df['audio_file_size'] > 0]
+    json_df = json_df[json_df['audio_file_size'] > 0]
 
     # --- Perform the Merge/Comparison ---
     merged_df = pd.merge(
-        csv_df, 
-        json_df, 
-        on='norm_title', 
-        how='outer', 
+        local_df,
+        json_df,
+        on='audio_file_size',
+        how='outer',
         suffixes=['_csv', '_json'],
         indicator=True
     )
@@ -54,61 +60,51 @@ def main():
     in_both = merged_df[merged_df['_merge'] == 'both']
 
     print("\n--- Comparison Summary ---")
-    print(f"Sermons found only in sermons.csv: {len(csv_only)}")
-    print(f"Sermons found only in the Tithely scrape (JSON): {len(json_only)}")
-    print(f"Sermons found in both sources: {len(in_both)}")
+    print(f"Sermons found only in local CSV data: {len(csv_only)}")
+    print(f"Sermons found only in Tithely scrape (JSON): {len(json_only)}")
+    print(f"Sermons found in both sources (matched by file size): {len(in_both)}")
 
-    # --- Find Discrepancies in Common Sermons ---
+    # --- Detailed Discrepancy Analysis ---
     discrepancies = []
-    for _, row in in_both.iterrows():
-        # Compare preacher/speaker
-        if str(row['preacher']).lower() != str(row['speaker']).lower():
-            discrepancies.append({
-                'title': row['title_csv'],
-                'field': 'Speaker',
-                'csv_value': row['preacher'],
-                'json_value': row['speaker']
-            })
-        # Compare series
-        if str(row.get('sermon_series_csv','')).lower() != str(row.get('sermon_series_json','')).lower():
-             discrepancies.append({
-                'title': row['title_csv'],
-                'field': 'Series',
-                'csv_value': row.get('sermon_series_csv',''),
-                'json_value': row.get('sermon_series_json','')
-            })
-        # Compare bible_passage
-        passage_csv = str(row.get('bible_passage_csv', ''))
-        passage_json = str(row.get('bible_passage_json', ''))
-        desc_json = str(row.get('description', ''))
-        if passage_csv and passage_csv not in passage_json and passage_csv not in desc_json:
-            discrepancies.append({
-                'title': row['title_csv'],
-                'field': 'Bible Passage',
-                'csv_value': passage_csv,
-                'json_value': passage_json if passage_json else '(not found)'
-            })
+    discrepancy_counts = Counter()
 
-    print(f"\nFound {len(discrepancies)} potential discrepancies in sermons that are in both sources.")
+    for _, row in in_both.iterrows():
+        fields_to_check = {
+            'title': ('title_csv', 'title_json'),
+            'speaker': ('preacher', 'speaker'),
+            'series': ('sermon_series', 'sermon_series_json'),
+            'passage': ('bible_passage', 'bible_passage_json')
+        }
+        
+        for field, (csv_col, json_col) in fields_to_check.items():
+            csv_val = normalize_text(row.get(csv_col, ''))
+            json_val = normalize_text(row.get(json_col, ''))
+            
+            if csv_val != json_val:
+                discrepancy_counts[field] += 1
+                discrepancies.append({
+                    'audio_file_size': row['audio_file_size'],
+                    'csv_title': row['title_csv'],
+                    'json_title': row['title_json'],
+                    'field_with_discrepancy': field,
+                    'csv_value': row.get(csv_col, '[NOT FOUND]'),
+                    'json_value': row.get(json_col, '[NOT FOUND]')
+                })
+
+    print(f"\n--- Discrepancy Breakdown ({len(discrepancies)} total) ---")
+    for field, count in discrepancy_counts.items():
+        print(f"- {count} sermons with mismatched '{field}' fields.")
+
+    # --- Generate CSV Report ---
+    if discrepancies:
+        discrepancy_df = pd.DataFrame(discrepancies)
+        discrepancy_df.to_csv(report_path, index=False)
+        print(f"\n✅ Successfully generated a detailed discrepancy report at: {report_path}")
 
     if not csv_only.empty:
-        print("\n--- Examples of Sermons Only in CSV ---")
-        for _, row in csv_only.head().iterrows():
-            print(f"- {row['title_csv']} (Date: {row['post_date_gmt']})")
-
-    if not json_only.empty:
-        print("\n--- Examples of Sermons Only in Tithely Scrape ---")
-        for _, row in json_only.head().iterrows():
-            print(f"- {row['title_json']} (Date: {row['date']})")
-            
-    if discrepancies:
-        print("\n--- Examples of Discrepancies ---")
-        for d in discrepancies[:5]:
-            print(f"- Title: {d['title']}")
-            print(f"  Field: {d['field']}")
-            print(f"  CSV Value:  '{d['csv_value']}'")
-            print(f"  JSON Value: '{d['json_value']}'")
-
+        print("\n--- Sermons Only in Local CSV (To Be Created on Tithely) ---")
+        for _, row in csv_only.iterrows():
+            print(f"- {row['title_csv']} (Size: {row['audio_file_size']})")
 
 if __name__ == "__main__":
     main()

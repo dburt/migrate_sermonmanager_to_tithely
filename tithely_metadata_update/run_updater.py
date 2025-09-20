@@ -5,6 +5,7 @@
 import os
 import sys
 import json
+import argparse
 from tithely_manager import TithelyManager
 from analysis_and_grouping import find_sermons_to_update
 
@@ -27,23 +28,27 @@ HEADLESS_MODE = False
 
 def main():
     """Main function to orchestrate the browser automation."""
+    parser = argparse.ArgumentParser(description="Update Tithely sermon metadata.")
+    parser.add_argument("--index-only", action="store_true", help="Only create the sermon index.")
+    parser.add_argument("--full-details", action="store_true", help="Enrich the index with full details.")
+    parser.add_argument("--dry-run", action="store_true", help="Simulate the update process without making changes.")
+    parser.add_argument("--limit", type=int, help="Limit the number of sermons to process.")
+    args = parser.parse_args()
+
     if not TITHELY_EMAIL or not TITHELY_PASSWORD:
         print("❌ ERROR: Please provide TITHELY_EMAIL and TITHELY_PASSWORD as environment variables.")
         return
 
-    index_only = '--index-only' in sys.argv
-    full_details = '--full-details' in sys.argv
-
     with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, HEADLESS_MODE) as manager:
         manager.login()
 
-        if index_only or not os.path.exists(SERMON_INDEX_PATH):
+        if args.index_only or not os.path.exists(SERMON_INDEX_PATH):
             print("Creating sermon index...")
-            sermon_index = manager.create_sermon_index(enrich_details=full_details, with_file_sizes=full_details)
+            sermon_index = manager.create_sermon_index(enrich_details=args.full_details, with_file_sizes=args.full_details)
             with open(SERMON_INDEX_PATH, "w") as index_file:
                 json.dump(sermon_index, index_file, indent=4)
             print(f"Found {len(sermon_index)} sermons in the index.")
-            if index_only:
+            if args.index_only:
                 return
         else:
             print("Sermon index found. Skipping index creation.")
@@ -54,28 +59,45 @@ def main():
             print("No sermons need updating.")
             return
 
-        print(f"Found {sum(len(s) for s in updates_by_page.values())} sermons to update across {len(updates_by_page)} pages.")
+        total_sermons_to_update = sum(len(s) for s in updates_by_page.values())
+        print(f"Found {total_sermons_to_update} sermons to update across {len(updates_by_page)} pages.")
 
+        processed_count = 0
         for page_url, sermons_to_update in updates_by_page.items():
+            if args.limit and processed_count >= args.limit:
+                break
+            
             print(f"\n--- Navigating to page: {page_url} ---")
-            manager.page.goto(page_url)
+            if not args.dry_run:
+                manager.page.goto(page_url)
+
             for sermon in sermons_to_update:
-                try:
-                    print(f"Processing sermon: {sermon['title_local']}")
-                    edit_button = manager.page.locator(f"a.js-sermon-form-link[href^='{sermon['edit_url']}/edit']")
-                    edit_button.click()
-                    
-                    manager.fill_and_submit_sermon_form(sermon)
-                    
-                    manager.page.goto(page_url)
+                if args.limit and processed_count >= args.limit:
+                    break
+                
+                print(f"Processing sermon: {sermon['title_local']}")
+                if args.dry_run:
+                    print("  [DRY RUN] Would update the following fields:")
+                    for discrepancy in sermon.get('discrepancies', []):
+                        print(f"    - {discrepancy}: '{sermon.get(discrepancy + '_local')}'")
+                else:
+                    try:
+                        edit_button = manager.page.locator(f"a.js-sermon-form-link[href^='{sermon['edit_url']}/edit']")
+                        edit_button.click()
+                        
+                        manager.fill_and_submit_sermon_form(sermon)
+                        
+                        manager.page.goto(page_url)
 
-                except Exception as e:
-                    print(f"❌ An error occurred while processing '{sermon.get('title_local', 'Unknown Sermon')}': {e}")
-                    print("Reloading the page to recover...")
-                    manager.page.reload()
-                    print(f"Current URL: {manager.page.url}")
+                    except Exception as e:
+                        print(f"❌ An error occurred while processing '{sermon.get('title_local', 'Unknown Sermon')}': {e}")
+                        print("Reloading the page to recover...")
+                        manager.page.reload()
+                        print(f"Current URL: {manager.page.url}")
+                
+                processed_count += 1
 
-        print("\n🎉 All sermons have been processed.")
+        print(f"\n🎉 {processed_count} sermons have been processed.")
 
 if __name__ == "__main__":
     main()

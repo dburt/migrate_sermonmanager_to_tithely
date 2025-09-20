@@ -1,4 +1,3 @@
-
 import pandas as pd
 import json
 from collections import defaultdict
@@ -15,8 +14,8 @@ def find_sermons_to_update(sermons_csv_path, csv_audio_sizes_path, sermon_index_
     index_df = pd.DataFrame(sermon_index)
 
     print("--- Preparing Data ---")
-    # Merge local data
-    local_df = pd.merge(sermons_df, sizes_df, on='post_id')
+    # Merge local data, avoiding title conflict
+    local_df = pd.merge(sermons_df, sizes_df[['post_id', 'audio_file_size']], on='post_id', how='left')
 
     # Clean and prepare for merge
     local_df.dropna(subset=['audio_file_size'], inplace=True)
@@ -32,7 +31,7 @@ def find_sermons_to_update(sermons_csv_path, csv_audio_sizes_path, sermon_index_
         index_df,
         on='audio_file_size',
         how='inner', # We only care about sermons that are in both
-        suffixes=('_local', '_online')
+        suffixes=['_local', '_online']
     )
 
     print("--- Identifying Discrepancies ---")
@@ -46,7 +45,7 @@ def find_sermons_to_update(sermons_csv_path, csv_audio_sizes_path, sermon_index_
         if str(row.get('sermon_series_local', '')).lower() != str(row.get('sermon_series_online', '')).lower():
             discrepancies.append('series')
         # Compare bible_passage
-        if str(row.get('bible_passage', '')).lower() != str(row.get('bible_passage_online', '')).lower():
+        if str(row.get('bible_passage_local', '')).lower() != str(row.get('bible_passage_online', '')).lower():
             discrepancies.append('passage')
 
         if discrepancies:
@@ -57,13 +56,13 @@ def find_sermons_to_update(sermons_csv_path, csv_audio_sizes_path, sermon_index_
     print(f"Found {len(sermons_to_update)} sermons with discrepancies to update.")
 
     # Identify sermons that are only in the local CSV
-    outer_merged_df = pd.merge(local_df, index_df, on='audio_file_size', how='outer', indicator=True)
+    outer_merged_df = pd.merge(local_df, index_df, on='audio_file_size', how='outer', indicator=True, suffixes=['_local', '_online'])
     local_only_df = outer_merged_df[outer_merged_df['_merge'] == 'left_only']
     if not local_only_df.empty:
         print(f"--- Found {len(local_only_df)} sermons that exist locally but not on Tithely. ---")
         print("These sermons need to be created manually on Tithely.")
         for _, row in local_only_df.head().iterrows():
-            print(f"  - {row['title']}")
+            print(f"  - {row['title_local']}")
 
     print("--- Grouping Sermons by Page URL for Updater ---")
     updates_by_page = defaultdict(list)

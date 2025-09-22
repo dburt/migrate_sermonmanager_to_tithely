@@ -105,6 +105,25 @@ This is the main script to run the entire data pipeline. It cleans the source CS
 ./run_processing_pipeline.sh
 ```
 
+### Fetching WordPress Export
+
+**`fetch_wordpress_export.py`**
+
+*   **Purpose:** Automates the download of the sermon archive from the WordPress admin panel. This is useful for getting an up-to-date export of the data from Sermon Manager.
+*   **Dependencies:** Requires `playwright` and `python-dotenv`.
+*   **Setup:** Before running, ensure your WordPress credentials are set in a `.env` file. You can use `.env.example` as a template:
+    ```
+    WORDPRESS_LOGIN_URL=https://your-wordpress-site.com/wp-admin
+    WORDPRESS_USERNAME=your_username
+    WORDPRESS_PASSWORD=your_password
+    ```
+*   **Usage:**
+    ```bash
+    # Run the script to download the export
+    uv run python fetch_wordpress_export.py
+    ```
+    The script will save the export as `stalfredschurch.WordPress.YYYY-MM-DD.xml` in the project root.
+
 ### Individual Scripts
 
 **1. `clean_csv.py`**

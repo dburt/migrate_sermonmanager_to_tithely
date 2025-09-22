@@ -45,14 +45,14 @@ def generate_rss_feed(json_filepath, rss_filepath):
         if not sermon.get('status') == 'publish':
             continue
 
-        title = html.escape(sermon.get('title', 'No Title'))
+        title = html.escape(sermon.get('title', 'No Title') or '')
         permalink = sermon.get('permalink', '#')
         post_date_gmt = sermon.get('post_date_gmt')
         audio_url = sermon.get('audio_url')
-        preacher = html.escape(sermon.get('preacher', 'N/A'))
-        sermon_series = html.escape(sermon.get('sermon_series', 'N/A'))
-        bible_passage = html.escape(sermon.get('bible_passage', 'N/A'))
-        content_text = html.escape(sermon.get('content_text', ''))
+        preacher = html.escape(sermon.get('preacher', 'N/A') or '')
+        sermon_series = html.escape(sermon.get('sermon_series', 'N/A') or '')
+        bible_passage = html.escape(sermon.get('bible_passage', 'N/A') or '')
+        content_text = html.escape(sermon.get('content_text', '') or '')
         image_url = sermon.get('image_url', '') # Assuming image_url is for the series art
 
         pub_date = ""

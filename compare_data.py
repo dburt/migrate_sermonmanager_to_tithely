@@ -72,8 +72,8 @@ def main():
         fields_to_check = {
             'title': ('title_csv', 'title_json'),
             'speaker': ('preacher', 'speaker'),
-            'series': ('sermon_series', 'sermon_series_json'),
-            'passage': ('bible_passage', 'bible_passage_json')
+            'series': ('sermon_series_csv', 'sermon_series_json'),
+            'passage': ('bible_passage_csv', 'bible_passage_json')
         }
         
         for field, (csv_col, json_col) in fields_to_check.items():

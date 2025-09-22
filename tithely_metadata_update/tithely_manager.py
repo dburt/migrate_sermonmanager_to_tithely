@@ -96,7 +96,7 @@ class TithelyManager:
                     "page": current_page,
                     "page_url": self.page.url,
                     "edit_url": edit_url,
-                    "title": title_link.inner_text().strip(),
+                    "title": title_link.get_attribute("title"),
                     "speaker": row.locator("td").nth(2).inner_text().strip(),
                     "date": row.locator("td").first.inner_text().strip(),
                     "sermon_series": row.locator("td").nth(3).get_attribute("title"),

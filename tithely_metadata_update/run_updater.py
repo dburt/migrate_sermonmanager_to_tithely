@@ -7,6 +7,7 @@ import sys
 import json
 import argparse
 import pandas as pd
+from datetime import datetime
 from tithely_manager import TithelyManager
 from analysis_and_grouping import find_sermons_to_update
 
@@ -46,8 +47,17 @@ def main():
         if args.index_only or not os.path.exists(SERMON_INDEX_PATH):
             print("Creating sermon index...")
             sermon_index = manager.create_sermon_index(enrich_details=args.full_details, with_file_sizes=args.full_details)
-            with open(SERMON_INDEX_PATH, "w") as index_file:
+            timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
+            timestamped_index_path = os.path.join(project_root, f"sermon_index_{timestamp}.json")
+            
+            with open(timestamped_index_path, "w") as index_file:
                 json.dump(sermon_index, index_file, indent=4)
+            print(f"Sermon index saved to {timestamped_index_path}")
+
+            if os.path.exists(SERMON_INDEX_PATH) or os.path.islink(SERMON_INDEX_PATH):
+                os.remove(SERMON_INDEX_PATH)
+            os.symlink(os.path.basename(timestamped_index_path), SERMON_INDEX_PATH)
+            print(f"Symlink sermon_index.json updated to point to the latest index file.")
             print(f"Found {len(sermon_index)} sermons in the index.")
             if args.index_only:
                 return

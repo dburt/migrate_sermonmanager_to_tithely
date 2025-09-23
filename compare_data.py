@@ -9,6 +9,7 @@ sermons_csv_path = 'sermons.csv'
 audio_sizes_csv_path = 'csv_audio_sizes.csv'
 json_path = 'sermon_index.json'
 report_path = 'discrepancy_report.csv'
+TITHELY_BASE_URL = "https://stalfreds.tithelysetup.com"
 # ------------------
 
 def normalize_text(text):
@@ -88,7 +89,8 @@ def main():
                     'json_title': row['title_json'],
                     'field_with_discrepancy': field,
                     'csv_value': row.get(csv_col, '[NOT FOUND]'),
-                    'json_value': row.get(json_col, '[NOT FOUND]')
+                    'json_value': row.get(json_col, '[NOT FOUND]'),
+                    'sermon_detail_link': f"{TITHELY_BASE_URL}{row.get('detail_page_url', '')}"
                 })
 
     print(f"\n--- Discrepancy Breakdown ({len(discrepancies)} total) ---")

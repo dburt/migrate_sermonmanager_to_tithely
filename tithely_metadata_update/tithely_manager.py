@@ -308,10 +308,13 @@ class TithelyManager:
         title = sermon_data.get("title_local", "")
         if pd.notna(title) and title.strip():
             form_locator.locator("#sermon_title").fill(title)
-        
+
         # Fill subtitle with post_id tag
-        if post_id_tag:
-            form_locator.locator("#sermon_subtitle").fill(post_id_tag)
+        #if post_id_tag:
+            #form_locator.locator("#sermon_subtitle").fill(post_id_tag)
+
+        # Clear subtitle
+            form_locator.locator("#sermon_subtitle").fill("")
 
         # Fill speaker
         speaker_name = sermon_data.get("preacher", "Guest Speaker")
@@ -323,7 +326,9 @@ class TithelyManager:
                 speaker_select.select_option(label="Guest Speaker")
 
         # Fill podcast
-        form_locator.locator("#sermon_podcast_id").select_option(value="5")
+        # 5 = test podcast 3
+        # 1 = sermons
+        form_locator.locator("#sermon_podcast_id").select_option(value="1")
 
         # Fill series
         series_name = sermon_data.get("sermon_series_local", "")

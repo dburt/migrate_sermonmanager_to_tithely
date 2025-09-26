@@ -199,31 +199,38 @@ The scripts in this directory allow for a data-driven workflow.
 
 ### Workflow
 
-1.  **Scrape Data:** Scrape all available data from the Tithely website into a local JSON file (`sermon_index.json`).
+The process for managing Tithely sermon metadata involves several steps to ensure data consistency and avoid issues with web scraping.
+
+1.  **Create Basic Sermon Index (Main Listing):** Scrape the main sermon listing page on Tithely to get a foundational index of all sermons. This step uses browser automation but only for the listing pages, which are more stable.
     ```bash
-    ./tithely_metadata_update/run_updater.py --index-only --full-details
+    ./tithely_metadata_update/selective_importer.py --create-index --listing-url /media/listing
     ```
-2.  **Enrich Local Data:** To facilitate accurate matching between the local CSV and the scraped Tithely data, it's useful to have the audio file sizes for the local records. This script generates that information.
+
+2.  **Create Basic Sermon Index (Podcast Listing):** Scrape a specific podcast listing page on Tithely to get an index of sermons associated with that podcast.
     ```bash
-    ./get_csv_file_sizes.py
+    ./tithely_metadata_update/selective_importer.py --create-index --listing-url /podcasts/your-podcast-slug
     ```
-3.  **Delete Duplicates (Optional):**
-    *   **Find Duplicates:** This script analyzes the `sermon_index.json` file to find duplicate sermons based on `audio_file_size`.
-        ```bash
-        ./tithely_metadata_update/find_duplicates.py
-        ```
-    *   **Delete Duplicates:** This script reads the `duplicates_to_delete.json` file and deletes the specified sermons from Tithely.
-        ```bash
-        ./tithely_metadata_update/delete_duplicates.py
-        ```
-4.  **Analyze or Update (Parallel Options):**
-    *   **Analyze:** These scripts provide a detailed comparison between the local `sermons.csv` file and a scraped `sermon_index.json` file. They help identify which sermons are missing from each source and highlights discrepancies in metadata for sermons that exist in both.
-        ```bash
-        ./tithely_metadata_update/run_analyzer.py
-        # Or
-        ./compare_data.py
-        ```
-    *   **Update:** This script will synchronize the metadata from `sermons.csv` to Tithely.
-        ```bash
-        ./tithely_metadata_update/run_updater.py
-        ```
+    *(Replace `/podcasts/your-podcast-slug` with the actual path to your podcast listing.)*
+
+3.  **Enrich Sermon Details (Podcast Index):** Process the basic podcast sermon index to fetch full details (Bible passage, description, audio URL, and file size) for each sermon by making direct HTTP requests to individual sermon pages. This avoids browser automation for detail pages, which can be prone to crashes.
+    ```bash
+    ./tithely_metadata_update/enrich_sermon_details.py
+    ```
+    *(This script will use the most recently created `sermon_index.json` as its input, which should be the podcast index if step 2 was the last index creation.)*
+
+4.  **Identify and Enrich Missing Sermons:** Compare the main listing index with the enriched podcast index to find sermons present in the main listing but not yet enriched (i.e., not part of the podcast). Then, enrich these missing sermons using direct HTTP requests.
+    ```bash
+    ./tithely_metadata_update/find_and_enrich_missing_sermons.py
+    ```
+    *(This script will use the most recently created main listing index and the enriched podcast index as inputs.)*
+
+5.  **Combine Enriched Indexes:** Merge the enriched podcast sermons and the newly enriched missing sermons into a single, comprehensive enriched sermon index. This file will contain all known sermon metadata.
+    ```bash
+    ./tithely_metadata_update/merge_enriched_indexes.py
+    ```
+
+6.  **Analyze or Update (Next Steps):** Once a comprehensive enriched index is available, you can proceed with further analysis or updates. This might involve:
+    *   Comparing the combined enriched index with local CSV data to identify discrepancies.
+    *   Using the `run_updater.py` script to push updates to Tithely based on the combined enriched data and local records.
+    *   Identifying and removing post IDs from subtitles, and updating speaker/preacher information.
+

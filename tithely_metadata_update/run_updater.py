@@ -46,7 +46,7 @@ def main():
 
         if args.index_only or not os.path.exists(SERMON_INDEX_PATH):
             print("Creating sermon index...")
-            sermon_index = manager.create_sermon_index(enrich_details=args.full_details, with_file_sizes=args.full_details)
+            sermon_index = manager.create_sermon_index(full_details=args.full_details, with_audio_urls=args.full_details)
             timestamp = datetime.now().strftime("%Y%m%d-%H%M%S")
             timestamped_index_path = os.path.join(project_root, f"sermon_index_{timestamp}.json")
             

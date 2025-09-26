@@ -30,6 +30,7 @@ def parse_arguments():
     parser.add_argument("--headless", action="store_true", help="Run the browser in headless mode.")
     parser.add_argument("--debug", action="store_true", help="Open a browser in debug mode on a specific sermon.")
     parser.add_argument("--start-page", type=int, default=1, help="Page number to start sermon indexing from.")
+    parser.add_argument("--listing-url", default="/media/listing", help="URL path for the sermon listing (e.g., /media/listing or /podcasts/your-podcast-slug).")
     return parser.parse_args()
 
 def main():
@@ -46,12 +47,23 @@ def main():
         print("Creating a new sermon index from Tithe.ly list pages...")
         with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, headless_mode) as manager:
             manager.login()
-            sermon_index = manager.create_sermon_index(
-                enrich_details=args.enrich,
-                detail_scrape_limit=args.limit,
-                with_file_sizes=args.with_file_sizes,
-                start_page=args.start_page
-            )
+            
+            if args.listing_url.startswith("/podcasts/"):
+                print(f"Scraping podcast listing from: {args.listing_url}")
+                sermon_index = manager.create_podcast_index(
+                    listing_url=args.listing_url,
+                    full_details=args.enrich,
+                    detail_scrape_limit=args.limit,
+                    with_audio_urls=args.with_file_sizes
+                )
+            else:
+                print(f"Scraping main sermon listing from: {args.listing_url}")
+                sermon_index = manager.create_main_listing_index(
+                    listing_url=args.listing_url,
+                    full_details=args.enrich,
+                    detail_scrape_limit=args.limit,
+                    with_audio_urls=args.with_file_sizes
+                )
             
             datestamp = datetime.now().strftime("%Y-%m-%d-%H%M%S")
             output_filename = f"sermon_index_{datestamp}.json"

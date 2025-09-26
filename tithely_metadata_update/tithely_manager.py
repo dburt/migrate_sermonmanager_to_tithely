@@ -54,16 +54,12 @@ class TithelyManager:
         expect(self.page.locator("text=You are now logged in")).to_be_visible(timeout=15000)
         print("Login successful!")
 
-    def create_sermon_index(self, listing_url="/media/listing", enrich_details=False, detail_scrape_limit=None, with_file_sizes=False, start_page=1):
-        """Creates an index of all sermons, optionally enriching it with details from each sermon's page."""
-        if start_page > 1:
-            print(f"Jumping to page {start_page}...")
-            self.page.goto(f"{self.base_url}{listing_url}?page={start_page}")
-        else:
-            self.page.goto(f"{self.base_url}{listing_url}")
+    def create_main_listing_index(self, listing_url="/media/listing", full_details=False, with_audio_urls=False, detail_scrape_limit=None):
+        """Creates an index of all sermons with their slugs and page numbers."""
+        self.page.goto(f"{self.base_url}{listing_url}")
         
         sermon_data_list = []
-        current_page = start_page
+        current_page = 1
         previous_url = ""
         while True:
             if self.page.url == previous_url:
@@ -75,11 +71,11 @@ class TithelyManager:
             self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=10000)
             sermon_rows = self.page.locator("table.table-hover.table-align-middle.table-nowrap tr")
             
-            if sermon_rows.count() <= 1:
+            if sermon_rows.count() <= 1: # A page with only a header row means no sermons
                 print("No more sermons found on this page.")
                 break
             
-            for row in sermon_rows.all()[1:]:
+            for row in sermon_rows.all()[1:]: # Skip header row
                 title_link = row.locator("td.table-item-name a").first
                 href = title_link.get_attribute("href")
                 slug_match = re.search(r'/media/([^/]+)', href)
@@ -96,7 +92,7 @@ class TithelyManager:
                     "page": current_page,
                     "page_url": self.page.url,
                     "edit_url": edit_url,
-                    "title": title_link.get_attribute("title"),
+                    "title": title_link.inner_text().strip(),
                     "speaker": row.locator("td").nth(2).inner_text().strip(),
                     "date": row.locator("td").first.inner_text().strip(),
                     "sermon_series": row.locator("td").nth(3).get_attribute("title"),
@@ -110,8 +106,9 @@ class TithelyManager:
                 print("Reached the safety page limit. Stopping index creation.")
                 break
             
-            if enrich_details and detail_scrape_limit is not None and len(sermon_data_list) >= detail_scrape_limit:
-                print(f"Collected {len(sermon_data_list)} sermons, stopping pagination to begin enrichment.")
+            # Stop collecting if we have enough for a limited detail scrape
+            if full_details and detail_scrape_limit is not None and len(sermon_data_list) >= detail_scrape_limit:
+                print(f"Collected {len(sermon_data_list)} sermons, stopping pagination to begin detail scrape.")
                 break
 
             next_button = self.page.get_by_role("link", name="→")
@@ -123,44 +120,131 @@ class TithelyManager:
                 print("No more pages to process.")
                 break
 
-        sermons_to_process = sermon_data_list
-        if detail_scrape_limit is not None:
-            sermons_to_process = sermon_data_list[:detail_scrape_limit]
+        if with_audio_urls:
+            for sermon_data in sermon_data_list:
+                sermon_data['audio_url'] = self.get_audio_download_url(sermon_data['detail_page_url'])
 
-        if enrich_details:
-            print(f"Enriching details for {len(sermons_to_process)} sermons...")
-            for sermon_data in tqdm(sermons_to_process, desc="Enriching Sermons"):
-                enriched_data = self.get_sermon_details_and_audio(sermon_data['detail_page_url'], sermon_data['slug'])
-                sermon_data.update(enriched_data)
+        if full_details:
+            sermons_to_scrape = sermon_data_list
+            if detail_scrape_limit is not None:
+                print(f"Fetching full details for a maximum of {detail_scrape_limit} sermons...")
+                sermons_to_scrape = sermon_data_list[:detail_scrape_limit]
+            
+            for sermon_data in sermons_to_scrape:
+                details = self.get_sermon_details(sermon_data['detail_page_url'], sermon_data['slug'])
+                sermon_data.update(details)
 
-        if with_file_sizes:
-            print(f"Fetching file sizes for {len(sermons_to_process)} sermons...")
-            for sermon_data in tqdm(sermons_to_process, desc="Fetching File Sizes"):
-                if sermon_data.get('audio_url') and 'audio_file_size' not in sermon_data:
-                    sermon_data['audio_file_size'] = self.get_file_size(sermon_data['audio_url'])
-        
         return sermon_data_list
 
-    def get_sermon_details_and_audio(self, sermon_url: str, slug: str) -> dict:
-        """
-        Visits a sermon detail page once to get description, Bible passage, and audio URL.
-        Saves the DOM for reference.
-        """
-        enriched_data = {
+    def create_podcast_index(self, listing_url: str, full_details=False, with_audio_urls=False, detail_scrape_limit=None) -> list:
+        """Creates an index of sermons from a podcast listing page."""
+        self.page.goto(f"{self.base_url}{listing_url}")
+        
+        sermon_data_list = []
+        current_page = 1
+        previous_url = ""
+        while True:
+            if self.page.url == previous_url:
+                print("URL has not changed, assuming end of pagination.")
+                break
+            previous_url = self.page.url
+
+            print(f"Processing page {current_page} ({self.page.url})...")
+            # This selector is specific to the podcast page structure
+            sermon_links = self.page.locator("a.row.d-sm-flex[href^='/media/']")
+            
+            if not sermon_links.count():
+                print("No more sermons found on this page.")
+                break
+            
+            for link in sermon_links.all():
+                href = link.get_attribute("href")
+                slug_match = re.search(r'/media/([^/]+)', href)
+                slug = slug_match.group(1) if slug_match else "Unknown Slug"
+                
+                # Extracting data from the podcast page structure
+                title_texts = link.locator("h2.h3").all_inner_texts()
+                speaker_texts = link.locator('div.h5.my-0, div.text-body.line-height-2').all_inner_texts()
+                date_texts = link.locator('div.text-muted:last-child').all_inner_texts()
+                passage_texts = link.locator(".text-body + .text-muted").all_inner_texts()
+                series_texts = link.locator("div.text-body").all_inner_texts()
+
+                sermon_data = {
+                    "slug": slug,
+                    "page": current_page,
+                    "page_url": self.page.url,
+                    "edit_url": href, # On podcast page, edit_url is the same as detail_page_url
+                    "title": title_texts[0].strip() if title_texts else "Unknown Title",
+                    "speaker": speaker_texts[0].strip() if speaker_texts else "Unknown Speaker",
+                    "date": date_texts[0].strip() if date_texts else "Unknown Date",
+                    "bible_passage": passage_texts[0].strip() if passage_texts else "Unknown Passage",
+                    "sermon_series": series_texts[0].strip() if series_texts else "Unknown Series",
+                    "media_type": "Audio", # Assuming podcast entries are always audio
+                    "podcast_slug": listing_url.split('/')[-1], # Extract from listing_url
+                    "detail_page_url": href,
+                }
+                sermon_data_list.append(sermon_data)
+
+            if current_page > 140:  # Safety limit
+                print("Reached the safety page limit. Stopping index creation.")
+                break
+            
+            if full_details and detail_scrape_limit is not None and len(sermon_data_list) >= detail_scrape_limit:
+                print(f"Collected {len(sermon_data_list)} sermons, stopping pagination to begin detail scrape.")
+                break
+
+            next_button = self.page.get_by_role("link", name="→")
+            if next_button.is_enabled():
+                next_button.click()
+                self.page.wait_for_load_state("domcontentloaded")
+                current_page += 1
+            else:
+                print("No more pages to process.")
+                break
+
+        if with_audio_urls:
+            for sermon_data in sermon_data_list:
+                sermon_data['audio_url'] = self.get_audio_download_url(sermon_data['detail_page_url'])
+
+        if full_details:
+            sermons_to_scrape = sermon_data_list
+            if detail_scrape_limit is not None:
+                print(f"Fetching full details for a maximum of {detail_scrape_limit} sermons...")
+                sermons_to_scrape = sermon_data_list[:detail_scrape_limit]
+            
+            for sermon_data in sermons_to_scrape:
+                details = self.get_sermon_details(sermon_data['detail_page_url'], sermon_data['slug'])
+                sermon_data.update(details)
+
+        return sermon_data_list
+
+    def get_sermon_details(self, sermon_url: str, slug: str) -> dict:
+        """Gets additional details from a sermon detail page and saves the DOM."""
+        details = {
             "bible_passage": "",
-            "description": "",
-            "audio_url": ""
+            "description": ""
         }
         try:
-            # print(f"Processing detail page: {sermon_url}") # Too noisy for full run
+            print(f"Getting full details from: {sermon_url}")
             self.page.goto(f"{self.base_url}{sermon_url}", timeout=30000)
+
+            # Wait for the main content to be attached to the DOM, using user's selector
             self.page.wait_for_selector(".article.mt-3", state="attached", timeout=15000)
 
-            # Scrape Bible Passage
+            # Save DOM for reference
+            dom_capture_dir = "dom_captures"
+            os.makedirs(dom_capture_dir, exist_ok=True)
+            with open(os.path.join(dom_capture_dir, f"{slug}.html"), "w") as f:
+                f.write(self.page.content())
+
+            # Scrape Bible Passage using user's specific instructions
             passage_container_locator = self.page.locator("div.py-3:has(h2:text-is('Bible Passage'))")
+            
+            bible_passage = ""
             if passage_container_locator.count() > 0:
-                enriched_data["bible_passage"] = passage_container_locator.evaluate(
-                    """element => {
+                # Use JavaScript evaluation to get the direct child text node
+                bible_passage = passage_container_locator.evaluate("""
+                    element => {
                         let passage = '';
                         for (const node of element.childNodes) {
                             if (node.nodeType === Node.TEXT_NODE && node.textContent.trim() !== '') {
@@ -169,23 +253,33 @@ class TithelyManager:
                             }
                         }
                         return passage;
-                    }"""
-                )
-
-            # Scrape Description
+                    }
+                """)
+            
+            details["bible_passage"] = bible_passage
+                
+            # Scrape Description using user's selector
             description_locator = self.page.locator(".article.mt-3")
             if description_locator.count() > 0:
-                enriched_data["description"] = description_locator.locator("p").first.inner_text().strip()
-
-            # Scrape Audio URL
-            download_link = self.page.locator("a.btn.btn-link[href*='cloudfront.net']")
-            if download_link.count() > 0:
-                enriched_data["audio_url"] = download_link.first.get_attribute("href")
+                # Assuming the description is the first <p> inside the container
+                details["description"] = description_locator.locator("p").first.inner_text().strip()
 
         except Exception as e:
             print(f"❌ Could not process page {sermon_url}. Error: {e}")
+            # Return empty details, the main loop will continue
         
-        return enriched_data
+        return details
+
+    def get_audio_download_url(self, sermon_url: str) -> str:
+        """Gets the audio download URL from a sermon detail page."""
+        try:
+            self.page.goto(f"{self.base_url}{sermon_url}", timeout=30000)
+            download_link = self.page.locator("a.btn.btn-link[href*='cloudfront.net']")
+            if download_link.count() > 0:
+                return download_link.first.get_attribute("href")
+        except Exception as e:
+            print(f"❌ Could not get audio URL from {sermon_url}. Error: {e}")
+        return ""
 
     def get_file_size(self, url: str) -> int:
         """Gets the file size in bytes from a URL using a HEAD request."""

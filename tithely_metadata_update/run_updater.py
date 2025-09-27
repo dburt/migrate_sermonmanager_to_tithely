@@ -5,6 +5,7 @@
 import os
 import sys
 import json
+import time
 import argparse
 import pandas as pd
 from datetime import datetime
@@ -35,6 +36,9 @@ def main():
     parser.add_argument("--full-details", action="store_true", help="Enrich the index with full details.")
     parser.add_argument("--dry-run", action="store_true", help="Simulate the update process without making changes.")
     parser.add_argument("--limit", type=int, help="Limit the number of sermons to process.")
+    parser.add_argument("--start-page", type=int, default=1, help="Page number to start processing from.")
+    parser.add_argument("--max-retries", type=int, default=3, help="Maximum number of retries for a single sermon.")
+    parser.add_argument("--delay", type=float, default=1.0, help="Delay in seconds between processing each sermon.")
     args = parser.parse_args()
 
     if not TITHELY_EMAIL or not TITHELY_PASSWORD:
@@ -73,8 +77,24 @@ def main():
         total_sermons_to_update = sum(len(s) for s in updates_by_page.values())
         print(f"Found {total_sermons_to_update} sermons to update across {len(updates_by_page)} pages.")
 
+        # Convert to list for slicing
+        pages_to_process = list(updates_by_page.items())
+
+        # Implement Resume Logic
+        if args.start_page > 1:
+            start_index = -1
+            for i, (page_url, _) in enumerate(pages_to_process):
+                if f"page={args.start_page}" in page_url:
+                    start_index = i
+                    break
+            if start_index != -1:
+                print(f"--- Resuming from page {args.start_page} ---")
+                pages_to_process = pages_to_process[start_index:]
+            else:
+                print(f"⚠️ Warning: Could not find start page {args.start_page}. Starting from the beginning.")
+
         processed_count = 0
-        for page_url, sermons_to_update in updates_by_page.items():
+        for page_url, sermons_to_update in pages_to_process:
             if args.limit and processed_count >= args.limit:
                 break
 
@@ -82,31 +102,55 @@ def main():
                 if args.limit and processed_count >= args.limit:
                     break
                 
-                print(f"Processing sermon: {sermon['title_local']}")
-                if args.dry_run:
-                    print("  [DRY RUN] Would update the following fields:")
-                    for discrepancy in sermon.get('discrepancies', []):
-                        field_map = {
-                            'speaker': 'preacher',
-                            'series': 'sermon_series_local',
-                            'passage': 'bible_passage_local'
-                        }
-                        local_key = field_map.get(discrepancy, discrepancy + '_local')
-                        value = sermon.get(local_key)
-                        display_value = value if pd.notna(value) else "(empty)"
-                        print(f"    - {discrepancy}: '{display_value}'")
-                else:
-                    try:
-                        manager.update_sermon(sermon)
-                    except Exception as e:
-                        print(f"❌ An error occurred while processing '{sermon.get('title_local', 'Unknown Sermon')}': {e}")
-                        print("Reloading the page to recover...")
-                        manager.page.reload()
-                        print(f"Current URL: {manager.page.url}")
+                sermon_title = sermon.get('title_local', 'Unknown Sermon')
                 
+                # Implement Retry Logic
+                for attempt in range(args.max_retries):
+                    try:
+                        print(f"[{datetime.now()}] Processing sermon: {sermon_title} (Attempt {attempt + 1}/{args.max_retries})")
+                        if args.dry_run:
+                            print("  [DRY RUN] Would update the following fields:")
+                            for discrepancy in sermon.get('discrepancies', []):
+                                field_map = {
+                                    'speaker': 'preacher',
+                                    'series': 'sermon_series_local',
+                                    'passage': 'bible_passage_local'
+                                }
+                                local_key = field_map.get(discrepancy, discrepancy + '_local')
+                                value = sermon.get(local_key)
+                                display_value = value if pd.notna(value) else "(empty)"
+                                print(f"    - {discrepancy}: '{display_value}'")
+                        else:
+                            manager.update_sermon(sermon)
+                        
+                        # Success, break the retry loop
+                        break
+
+                    except Exception as e:
+                        print(f"❌ An error occurred while processing '{sermon_title}': {e}")
+                        if attempt < args.max_retries - 1:
+                            print("Attempting to recover and retry...")
+                            try:
+                                # A more robust recovery: navigate to a known good page
+                                manager.page.goto("https://stalfreds.tithelysetup.com/media/listing", wait_until="domcontentloaded")
+                                print("Recovery successful.")
+                            except Exception as recovery_e:
+                                print(f"❌ CRITICAL: Recovery failed: {recovery_e}")
+                                print("Aborting script to prevent further errors.")
+                                raise  # Re-raise the exception to stop the script
+                        else:
+                            print(f"❌ Failed to process sermon '{sermon_title}' after {args.max_retries} attempts. Skipping.")
+
                 processed_count += 1
+                if args.delay > 0 and not args.dry_run:
+                    # print(f"--- Delaying for {args.delay} second(s) ---")
+                    time.sleep(args.delay)
 
         print(f"\n🎉 {processed_count} sermons have been processed.")
+
+if __name__ == "__main__":
+    main()
+
 
 if __name__ == "__main__":
     main()

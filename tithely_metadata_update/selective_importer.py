@@ -94,13 +94,6 @@ def main():
             
             online_sermons_df = pd.DataFrame(online_sermons)
 
-            # --- DEBUGGING --- 
-            print("\n--- [DEBUG] First 5 Online Sermons ---")
-            print(online_sermons_df.head(5)[['title', 'audio_file_size']])
-            print("\n--- [DEBUG] Most Recent 5 Local Sermons ---")
-            print(local_sermons_df.sort_values(by='post_date_gmt', ascending=False).head(5)[['title', 'audio_file_size']])
-            # --- END DEBUGGING ---
-
             # Merge with local data
             merged_df = pd.merge(
                 online_sermons_df, 
@@ -110,13 +103,6 @@ def main():
                 suffixes=('_online', '_local')
             )
             
-            # --- DEBUGGING ---
-            print(f"\n--- [DEBUG] Found {len(merged_df)} matched sermons ---")
-            if not merged_df.empty:
-                print(merged_df[['title_online', 'title_local', 'audio_file_size']])
-            print("--- END DEBUGGING ---\n")
-            # --- END DEBUGGING ---
-
             sermons_to_update = merged_df.to_dict('records')
             
             if args.limit:

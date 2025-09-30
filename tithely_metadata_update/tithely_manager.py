@@ -96,6 +96,11 @@ class TithelyManager:
                 podcast_slug = None
                 if "?podcast=" in edit_url:
                     podcast_slug = edit_url.split("?podcast=")[-1]
+                
+                # If the sermon is not in the 'media' podcast, skip it.
+                if podcast_slug != 'media':
+                    print(f"Skipping sermon (not in 'media' podcast): {title_link.inner_text().strip()}")
+                    continue
 
                 sermon_data = {
                     "slug": slug,
@@ -465,7 +470,7 @@ class TithelyManager:
             print(f"❌ Could not find the 'More' button in the sermon row.")
             return False
             
-        more_button.click()
+        more_button.click(force=True)
 
         print("Finding and clicking the edit button...")
         edit_selector = f"a.js-sermon-form-link[href='{sermon_edit_url}']"

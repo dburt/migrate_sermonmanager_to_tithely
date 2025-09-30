@@ -12,6 +12,12 @@ The primary goal of synchronizing the local sermon data with the Tithely databas
 - [x] Successfully ran the full data synchronization, resuming from page 27 of the sermon archive.
 - [x] Updated project documentation (`README.md` and `NOTES.md`) to reflect the new, stable workflow.
 
+### Update Progress
+- **Pages 1-2:** Completed.
+- **Pages 3-20:** In progress.
+- **Pages 21-28:** Largely complete, with a few exceptions.
+- **Pages 28-End:** Completed.
+
 ### Challenges & Discoveries
 
 - The `README.md` and `NOTES.md` files were outdated, describing a complex and partially unavailable set of scripts for data synchronization.

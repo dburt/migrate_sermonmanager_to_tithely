@@ -54,20 +54,28 @@ class TithelyManager:
         expect(self.page.locator("text=You are now logged in")).to_be_visible(timeout=15000)
         print("Login successful!")
 
-    def create_main_listing_index(self, listing_url="/media/listing", full_details=False, with_audio_urls=False, detail_scrape_limit=None, start_page=1):
+    def create_main_listing_index(self, listing_url="/media/listing", full_details=False, with_audio_urls=False, detail_scrape_limit=None, start_page=1, end_page=None):
         """Creates an index of all sermons with their slugs and page numbers."""
         
         current_page = start_page
         start_url = f"{self.base_url}{listing_url}"
         if current_page > 1:
             start_url += f"?page={current_page}"
+
+        self.page.goto(start_url)
         
+        sermon_data_list = []
+        previous_url = ""
         while True:
             current_url = self.page.url.split('#')[0]
             if current_url == previous_url:
                 print("URL has not changed, assuming end of pagination.")
                 break
             previous_url = current_url
+
+            if end_page and current_page > end_page:
+                print(f"Reached end page {end_page}. Stopping index creation.")
+                break
 
             print(f"Processing page {current_page} ({self.page.url})...")
             self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=10000)
@@ -150,7 +158,7 @@ class TithelyManager:
 
         return sermon_data_list
 
-    def create_podcast_index(self, listing_url: str, full_details=False, with_audio_urls=False, detail_scrape_limit=None) -> list:
+    def create_podcast_index(self, listing_url: str, full_details=False, with_audio_urls=False, detail_scrape_limit=None, end_page=None) -> list:
         """Creates an index of sermons from a podcast listing page."""
         self.page.goto(f"{self.base_url}{listing_url}")
         
@@ -163,6 +171,10 @@ class TithelyManager:
                 print("URL has not changed, assuming end of pagination.")
                 break
             previous_url = current_url
+
+            if end_page and current_page > end_page:
+                print(f"Reached end page {end_page}. Stopping index creation.")
+                break
 
             print(f"Processing page {current_page} ({self.page.url})...")
             # This selector is specific to the podcast page structure

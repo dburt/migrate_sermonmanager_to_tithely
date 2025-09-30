@@ -32,6 +32,7 @@ def parse_arguments():
     parser.add_argument("--headless", action="store_true", help="Run the browser in headless mode.")
     parser.add_argument("--debug", action="store_true", help="Open a browser in debug mode on a specific sermon.")
     parser.add_argument("--start-page", type=int, default=1, help="Page number to start sermon indexing from.")
+    parser.add_argument("--end-page", type=int, default=None, help="Page number to stop sermon indexing at.")
     parser.add_argument("--listing-url", default="/media/listing", help="URL path for the sermon listing (e.g., /media/listing or /podcasts/your-podcast-slug).")
     parser.add_argument("--delay", type=float, default=1.0, help="Delay in seconds between processing each sermon.")
     return parser.parse_args()
@@ -88,7 +89,8 @@ def main():
                 full_details=True, # Must be true to get edit_url
                 detail_scrape_limit=args.limit,
                 with_audio_urls=True, # Must be true to get audio_file_size
-                start_page=args.start_page
+                start_page=args.start_page,
+                end_page=args.end_page
             )
             
             online_sermons_df = pd.DataFrame(online_sermons)

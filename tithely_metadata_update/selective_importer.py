@@ -83,18 +83,24 @@ def main():
         with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, headless_mode) as manager:
             manager.login()
 
-            # This logic is similar to create_index, but processes updates immediately
             online_sermons = manager.create_main_listing_index(
                 listing_url=args.listing_url,
-                full_details=True, # Must be true to get edit_url
+                full_details=True,
                 detail_scrape_limit=args.limit,
-                with_audio_urls=True, # Must be true to get audio_file_size
+                with_audio_urls=True,
                 start_page=args.start_page,
                 end_page=args.end_page
             )
             
             online_sermons_df = pd.DataFrame(online_sermons)
-            
+
+            # --- DEBUGGING --- 
+            print("\n--- [DEBUG] First 5 Online Sermons ---")
+            print(online_sermons_df.head(5)[['title', 'audio_file_size']])
+            print("\n--- [DEBUG] Most Recent 5 Local Sermons ---")
+            print(local_sermons_df.sort_values(by='post_date_gmt', ascending=False).head(5)[['title', 'audio_file_size']])
+            # --- END DEBUGGING ---
+
             # Merge with local data
             merged_df = pd.merge(
                 online_sermons_df, 
@@ -104,14 +110,22 @@ def main():
                 suffixes=('_online', '_local')
             )
             
+            # --- DEBUGGING ---
+            print(f"\n--- [DEBUG] Found {len(merged_df)} matched sermons ---")
+            if not merged_df.empty:
+                print(merged_df[['title_online', 'title_local', 'audio_file_size']])
+            print("--- END DEBUGGING ---\n")
+            # --- END DEBUGGING ---
+
             sermons_to_update = merged_df.to_dict('records')
             
             if args.limit:
                 sermons_to_update = sermons_to_update[:args.limit]
                 
-            print(f"Found {len(sermons_to_update)} sermons with matching audio file sizes to check for updates.")
+            print(f"Found {len(sermons_to_update)} sermons to process for updates.")
 
             if not sermons_to_update:
+                print("No sermons to update.")
                 return
 
             # Group by page to minimize navigation
@@ -122,7 +136,6 @@ def main():
             for page_url, sermons in sorted(updates_by_page.items()):
                 print(f"--- Processing page: {page_url} ---")
                 for sermon_data in sermons:
-                    # Here you could add more sophisticated discrepancy checks if needed
                     print(f"Updating sermon: {sermon_data['title_online']} -> {sermon_data['title_local']}")
                     success = manager.update_sermon(sermon_data)
                     if not success:

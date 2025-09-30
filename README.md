@@ -197,40 +197,32 @@ Tithely's web interface does not provide a way to bulk-edit sermon metadata, suc
 
 The scripts in this directory allow for a data-driven workflow. 
 
-### Workflow
+### Workflow: Live Update
 
-The process for managing Tithely sermon metadata involves several steps to ensure data consistency and avoid issues with web scraping.
+After extensive debugging and refinement, the recommended workflow for updating sermon metadata is a direct, live update process. This approach is more robust and less complex than the previous index-based method. It works by crawling the live Tithely site, comparing each online sermon directly against the local CSV data, and applying updates immediately.
 
-1.  **Create Basic Sermon Index (Main Listing):** Scrape the main sermon listing page on Tithely to get a foundational index of all sermons. This step uses browser automation but only for the listing pages, which are more stable.
+The primary script for this is `selective_importer.py` used with the `--live-update` flag.
+
+**Usage:**
+
+1.  **For a full update:**
     ```bash
-    ./tithely_metadata_update/selective_importer.py --create-index --listing-url /media/listing
+    ./tithely_metadata_update/selective_importer.py --live-update
     ```
 
-2.  **Create Basic Sermon Index (Podcast Listing):** Scrape a specific podcast listing page on Tithely to get an index of sermons associated with that podcast.
+2.  **For a limited test run:**
+    To test the script's behavior on a small sample, use the `--limit` flag. This is highly recommended before running a full update.
     ```bash
-    ./tithely_metadata_update/selective_importer.py --create-index --listing-url /podcasts/your-podcast-slug
-    ```
-    *(Replace `/podcasts/your-podcast-slug` with the actual path to your podcast listing.)*
-
-3.  **Enrich Sermon Details (Podcast Index):** Process the basic podcast sermon index to fetch full details (Bible passage, description, audio URL, and file size) for each sermon by making direct HTTP requests to individual sermon pages. This avoids browser automation for detail pages, which can be prone to crashes.
-    ```bash
-    ./tithely_metadata_update/enrich_sermon_details.py
-    ```
-    *(This script will use the most recently created `sermon_index.json` as its input, which should be the podcast index if step 2 was the last index creation.)*
-
-4.  **Identify and Enrich Missing Sermons:** Compare the main listing index with the enriched podcast index to find sermons present in the main listing but not yet enriched (i.e., not part of the podcast). Then, enrich these missing sermons using direct HTTP requests.
-    ```bash
-    ./tithely_metadata_update/find_and_enrich_missing_sermons.py
-    ```
-    *(This script will use the most recently created main listing index and the enriched podcast index as inputs.)*
-
-5.  **Combine Enriched Indexes:** Merge the enriched podcast sermons and the newly enriched missing sermons into a single, comprehensive enriched sermon index. This file will contain all known sermon metadata.
-    ```bash
-    ./tithely_metadata_update/merge_enriched_indexes.py
+    # Process a maximum of 5 sermons
+    ./tithely_metadata_update/selective_importer.py --live-update --limit 5
     ```
 
-6.  **Analyze or Update (Next Steps):** Once a comprehensive enriched index is available, you can proceed with further analysis or updates. This might involve:
-    *   Comparing the combined enriched index with local CSV data to identify discrepancies.
-    *   Using the `run_updater.py` script to push updates to Tithely based on the combined enriched data and local records.
-    *   Identifying and removing post IDs from subtitles, and updating speaker/preacher information.
+3.  **To resume an interrupted update:**
+    If a long-running update is interrupted, you can resume it from where it left off using the `--start-page` flag.
+    ```bash
+    # Resume the update starting from page 27
+    ./tithely_metadata_update/selective_importer.py --live-update --start-page 27
+    ```
+
+This streamlined process bypasses the need for intermediate analysis scripts and ensures that updates are always based on the freshest available data.
 

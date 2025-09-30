@@ -54,18 +54,20 @@ class TithelyManager:
         expect(self.page.locator("text=You are now logged in")).to_be_visible(timeout=15000)
         print("Login successful!")
 
-    def create_main_listing_index(self, listing_url="/media/listing", full_details=False, with_audio_urls=False, detail_scrape_limit=None):
+    def create_main_listing_index(self, listing_url="/media/listing", full_details=False, with_audio_urls=False, detail_scrape_limit=None, start_page=1):
         """Creates an index of all sermons with their slugs and page numbers."""
-        self.page.goto(f"{self.base_url}{listing_url}")
         
-        sermon_data_list = []
-        current_page = 1
-        previous_url = ""
+        current_page = start_page
+        start_url = f"{self.base_url}{listing_url}"
+        if current_page > 1:
+            start_url += f"?page={current_page}"
+        
         while True:
-            if self.page.url == previous_url:
+            current_url = self.page.url.split('#')[0]
+            if current_url == previous_url:
                 print("URL has not changed, assuming end of pagination.")
                 break
-            previous_url = self.page.url
+            previous_url = current_url
 
             print(f"Processing page {current_page} ({self.page.url})...")
             self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=10000)
@@ -108,7 +110,8 @@ class TithelyManager:
             
             # Stop collecting if we have enough for a limited detail scrape
             if full_details and detail_scrape_limit is not None and len(sermon_data_list) >= detail_scrape_limit:
-                print(f"Collected {len(sermon_data_list)} sermons, stopping pagination to begin detail scrape.")
+                print(f"Collected basic info for {len(sermon_data_list)} sermons (limit was {detail_scrape_limit}).")
+                print(f"Now stopping pagination to fetch full details for the first {detail_scrape_limit} of these.")
                 break
 
             next_button = self.page.get_by_role("link", name="→")
@@ -120,19 +123,30 @@ class TithelyManager:
                 print("No more pages to process.")
                 break
 
-        if with_audio_urls:
-            for sermon_data in sermon_data_list:
-                sermon_data['audio_url'] = self.get_audio_download_url(sermon_data['detail_page_url'])
-
         if full_details:
             sermons_to_scrape = sermon_data_list
             if detail_scrape_limit is not None:
                 print(f"Fetching full details for a maximum of {detail_scrape_limit} sermons...")
                 sermons_to_scrape = sermon_data_list[:detail_scrape_limit]
             
-            for sermon_data in sermons_to_scrape:
+            for sermon_data in tqdm(sermons_to_scrape, desc="Fetching full sermon details"):
                 details = self.get_sermon_details(sermon_data['detail_page_url'], sermon_data['slug'])
                 sermon_data.update(details)
+                
+                # Now get file size
+                if sermon_data.get('audio_url'):
+                    sermon_data['audio_file_size'] = self.get_file_size(sermon_data['audio_url'])
+                else:
+                    sermon_data['audio_file_size'] = 0
+        # The with_audio_urls parameter is kept for compatibility but its functionality
+        # is now handled within the full_details block for efficiency.
+        elif with_audio_urls:
+            for sermon_data in tqdm(sermon_data_list, desc="Fetching audio URLs and file sizes"):
+                sermon_data['audio_url'] = self.get_audio_download_url(sermon_data['detail_page_url'])
+                if sermon_data['audio_url']:
+                    sermon_data['audio_file_size'] = self.get_file_size(sermon_data['audio_url'])
+                else:
+                    sermon_data['audio_file_size'] = 0
 
         return sermon_data_list
 
@@ -144,10 +158,11 @@ class TithelyManager:
         current_page = 1
         previous_url = ""
         while True:
-            if self.page.url == previous_url:
+            current_url = self.page.url.split('#')[0]
+            if current_url == previous_url:
                 print("URL has not changed, assuming end of pagination.")
                 break
-            previous_url = self.page.url
+            previous_url = current_url
 
             print(f"Processing page {current_page} ({self.page.url})...")
             # This selector is specific to the podcast page structure
@@ -202,19 +217,30 @@ class TithelyManager:
                 print("No more pages to process.")
                 break
 
-        if with_audio_urls:
-            for sermon_data in sermon_data_list:
-                sermon_data['audio_url'] = self.get_audio_download_url(sermon_data['detail_page_url'])
-
         if full_details:
             sermons_to_scrape = sermon_data_list
             if detail_scrape_limit is not None:
                 print(f"Fetching full details for a maximum of {detail_scrape_limit} sermons...")
                 sermons_to_scrape = sermon_data_list[:detail_scrape_limit]
             
-            for sermon_data in sermons_to_scrape:
+            for sermon_data in tqdm(sermons_to_scrape, desc="Fetching full sermon details"):
                 details = self.get_sermon_details(sermon_data['detail_page_url'], sermon_data['slug'])
                 sermon_data.update(details)
+                
+                # Now get file size
+                if sermon_data.get('audio_url'):
+                    sermon_data['audio_file_size'] = self.get_file_size(sermon_data['audio_url'])
+                else:
+                    sermon_data['audio_file_size'] = 0
+        # The with_audio_urls parameter is kept for compatibility but its functionality
+        # is now handled within the full_details block for efficiency.
+        elif with_audio_urls:
+            for sermon_data in tqdm(sermon_data_list, desc="Fetching audio URLs and file sizes"):
+                sermon_data['audio_url'] = self.get_audio_download_url(sermon_data['detail_page_url'])
+                if sermon_data['audio_url']:
+                    sermon_data['audio_file_size'] = self.get_file_size(sermon_data['audio_url'])
+                else:
+                    sermon_data['audio_file_size'] = 0
 
         return sermon_data_list
 
@@ -222,7 +248,8 @@ class TithelyManager:
         """Gets additional details from a sermon detail page and saves the DOM."""
         details = {
             "bible_passage": "",
-            "description": ""
+            "description": "",
+            "audio_url": ""
         }
         try:
             print(f"Getting full details from: {sermon_url}")
@@ -243,7 +270,7 @@ class TithelyManager:
             bible_passage = ""
             if passage_container_locator.count() > 0:
                 # Use JavaScript evaluation to get the direct child text node
-                bible_passage = passage_container_locator.evaluate("""
+                bible_passage = passage_container_locator.evaluate('''
                     element => {
                         let passage = '';
                         for (const node of element.childNodes) {
@@ -254,7 +281,7 @@ class TithelyManager:
                         }
                         return passage;
                     }
-                """)
+                ''')
             
             details["bible_passage"] = bible_passage
                 
@@ -263,6 +290,11 @@ class TithelyManager:
             if description_locator.count() > 0:
                 # Assuming the description is the first <p> inside the container
                 details["description"] = description_locator.locator("p").first.inner_text().strip()
+
+            # Scrape Audio URL
+            download_link = self.page.locator("a.btn.btn-link[href*='cloudfront.net']")
+            if download_link.count() > 0:
+                details["audio_url"] = download_link.first.get_attribute("href")
 
         except Exception as e:
             print(f"❌ Could not process page {sermon_url}. Error: {e}")
@@ -367,14 +399,14 @@ class TithelyManager:
 
         try:
             # Use TinyMCE API to set the content
-            self.page.evaluate("""
+            self.page.evaluate('''
                 (newContent) => {
                     var editor = tinymce.get('sermon_topic');
                     if (editor) {
                         editor.setContent(newContent);
                     }
                 }
-            """, new_description)
+            ''', new_description)
             print("Updated description via TinyMCE API.")
         except Exception as e:
             print(f"❌ ERROR: Could not update description via TinyMCE API. Error: {e}")
@@ -384,10 +416,11 @@ class TithelyManager:
         save_button = form_locator.locator("button[type='submit']:has-text('Save Sermon')")
         save_button.click()
         try:
-            expect(self.page.locator("text=Updated Sermon")).to_be_visible(timeout=5000)
+            # Wait for the modal to disappear as a more reliable confirmation
+            expect(form_locator).to_be_hidden(timeout=15000)
             print(f"✅ Successfully updated: {sermon_data.get('title_local')}")
         except Exception:
-            print("❌ ERROR: Could not confirm successful update. Check if the form was submitted correctly.")
+            print("❌ ERROR: Could not confirm successful update (modal did not disappear).")
             return
 
     def update_sermon(self, sermon_data: dict):
@@ -433,6 +466,13 @@ class TithelyManager:
         edit_button.click()
         
         self.fill_and_submit_sermon_form(sermon_data)
+
+        # After submitting, wait for the page to reload to prevent race conditions
+        try:
+            self.page.wait_for_load_state("networkidle", timeout=20000)
+        except Exception as e:
+            print(f"⚠️ Warning: Timed out waiting for page to settle after update. Error: {e}")
+
         return True
 
     def delete_sermon(self, sermon_data: dict):

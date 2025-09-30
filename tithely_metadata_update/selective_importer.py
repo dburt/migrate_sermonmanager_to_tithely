@@ -66,6 +66,17 @@ def main():
         local_sermons_df['post_id'] = local_sermons_df['post_id'].astype(int)
         csv_audio_sizes_df['post_id'] = csv_audio_sizes_df['post_id'].astype(int)
         local_sermons_df = pd.merge(local_sermons_df, csv_audio_sizes_df, on='post_id', how='left')
+
+        # Clean up columns from the local merge that created _x and _y suffixes
+        if 'title_x' in local_sermons_df.columns:
+            local_sermons_df = local_sermons_df.rename(columns={'title_x': 'title'})
+        if 'title_y' in local_sermons_df.columns:
+            local_sermons_df = local_sermons_df.drop(columns=['title_y'])
+        if 'audio_url_x' in local_sermons_df.columns:
+            local_sermons_df = local_sermons_df.rename(columns={'audio_url_x': 'audio_url'})
+        if 'audio_url_y' in local_sermons_df.columns:
+            local_sermons_df = local_sermons_df.drop(columns=['audio_url_y'])
+
         print(f"Loaded {len(local_sermons_df)} local sermons for matching.")
 
         with TithelyManager(TITHELY_EMAIL, TITHELY_PASSWORD, BRAVE_EXECUTABLE_PATH, headless_mode) as manager:
@@ -91,12 +102,6 @@ def main():
                 suffixes=('_online', '_local')
             )
             
-            merged_df = merged_df.rename(columns={
-                'title_local': 'title',
-                'sermon_series_local': 'sermon_series',
-                'bible_passage_local': 'bible_passage'
-            })
-
             sermons_to_update = merged_df.to_dict('records')
             
             if args.limit:
@@ -116,10 +121,10 @@ def main():
                 print(f"--- Processing page: {page_url} ---")
                 for sermon_data in sermons:
                     # Here you could add more sophisticated discrepancy checks if needed
-                    print(f"Updating sermon: {sermon_data['title_online']} -> {sermon_data['title']}")
+                    print(f"Updating sermon: {sermon_data['title_online']} -> {sermon_data['title_local']}")
                     success = manager.update_sermon(sermon_data)
                     if not success:
-                        print(f"❌ Failed to update sermon: {sermon_data['title']}")
+                        print(f"❌ Failed to update sermon: {sermon_data['title_local']}")
                     
                     if args.delay > 0:
                         time.sleep(args.delay)

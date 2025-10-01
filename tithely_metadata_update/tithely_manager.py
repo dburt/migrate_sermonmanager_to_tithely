@@ -96,10 +96,10 @@ class TithelyManager:
                 podcast_slug = None
                 if "?podcast=" in edit_url:
                     podcast_slug = edit_url.split("?podcast=")[-1]
-                
-                # If the sermon is not in the 'media' podcast, skip it.
-                if podcast_slug != 'media':
-                    print(f"Skipping sermon (not in 'media' podcast): {title_link.inner_text().strip()}")
+
+                # If the sermon has been processed (i.e., is in the 'media' podcast), skip it.
+                if podcast_slug == 'media':
+                    print(f"Skipping sermon (already processed, in 'media' podcast): {title_link.inner_text().strip()}")
                     continue
 
                 sermon_data = {
@@ -478,6 +478,13 @@ class TithelyManager:
         
         if edit_button.count() == 0:
             print(f"❌ Could not find the edit button after clicking 'More'.")
+            return False
+
+        # Explicitly wait for the edit button to become visible before clicking
+        try:
+            edit_button.wait_for(state='visible', timeout=5000)
+        except Exception as e:
+            print(f"❌ Edit button did not become visible after clicking 'More'. Error: {e}")
             return False
 
         edit_button.click()

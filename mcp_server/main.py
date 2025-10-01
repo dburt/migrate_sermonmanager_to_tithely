@@ -4,6 +4,8 @@ from pydantic import BaseModel
 from typing import List, Dict, Any, Optional
 import os
 
+from fastapi_mcp import FastApiMCP
+
 # Import the refactored TithelyManager
 from tithely_manager import TithelyManager
 
@@ -20,6 +22,9 @@ app = FastAPI(
     description="A server to provide an API for interacting with sermon data from Tithely and local files.",
     version="0.2.0",
 )
+
+mcp = FastApiMCP(app)
+mcp.mount()
 
 # --- In-memory Data & Global Manager ---
 sermons_df = None

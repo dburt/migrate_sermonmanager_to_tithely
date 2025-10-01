@@ -43,6 +43,25 @@ class TithelyManager:
         if self.playwright:
             self.playwright.stop()
 
+    def start_browser(self):
+        """Starts the Playwright browser instance."""
+        self.playwright = sync_playwright().start()
+        self.browser = self.playwright.chromium.launch(
+            executable_path=self.brave_executable_path,
+            headless=self.headless,
+            slow_mo=50
+        )
+        self.page = self.browser.new_page()
+        print("Browser started.")
+
+    def stop_browser(self):
+        """Stops the Playwright browser instance."""
+        if self.browser:
+            self.browser.close()
+        if self.playwright:
+            self.playwright.stop()
+        print("Browser stopped.")
+
     def login(self):
         """Navigates to the login page and logs in with provided credentials."""
         print("Navigating to login page...")

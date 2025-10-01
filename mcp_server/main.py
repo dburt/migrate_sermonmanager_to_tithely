@@ -7,11 +7,11 @@ import os
 from fastapi_mcp import FastApiMCP
 
 # Import the refactored TithelyManager
-from tithely_manager import TithelyManager
+from .tithely_manager import TithelyManager
 
 # --- CONFIGURATION ---
 # Assuming the server is run from the 'mcp_server' directory
-SERMONS_CSV_PATH = "../sermons.csv"
+SERMONS_CSV_PATH = "sermons.csv"
 TITHELY_EMAIL = os.environ.get("TITHELY_EMAIL")
 TITHELY_PASSWORD = os.environ.get("TITHELY_PASSWORD")
 BRAVE_EXECUTABLE_PATH = "/usr/bin/brave-browser"

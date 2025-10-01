@@ -106,3 +106,32 @@ def explore_tithely(request: ExploreRequest):
     
     results = manager.explore(url=request.url, actions=[action.dict() for action in request.actions])
     return results
+
+@app.get("/tithely/sermons", response_model=List[Dict[str, Any]])
+def get_tithely_sermons(page: int = 1):
+    """
+    Get a single page of sermons from the main Tithely listing.
+    """
+    if not manager.page:
+        raise HTTPException(status_code=503, detail="Tithely manager not available. Check server logs.")
+    
+    try:
+        sermons = manager.create_main_listing_index(start_page=page, end_page=page)
+        return sermons
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred while fetching sermons: {e}")
+
+@app.get("/tithely/sermons/{sermon_slug}", response_model=Dict[str, Any])
+def get_tithely_sermon_details(sermon_slug: str):
+    """
+    Get detailed information for a single sermon from its detail page.
+    """
+    if not manager.page:
+        raise HTTPException(status_code=503, detail="Tithely manager not available. Check server logs.")
+    
+    sermon_url = f"/media/{sermon_slug}"
+    try:
+        details = manager.get_sermon_details(sermon_url=sermon_url, slug=sermon_slug)
+        return details
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"An error occurred while fetching sermon details: {e}")

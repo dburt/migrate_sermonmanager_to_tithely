@@ -97,10 +97,10 @@ class TithelyManager:
                 if "?podcast=" in edit_url:
                     podcast_slug = edit_url.split("?podcast=")[-1]
 
-                # If the sermon has been processed (i.e., is in the 'media' podcast), skip it.
-                if podcast_slug == 'media':
-                    print(f"Skipping sermon (already processed, in 'media' podcast): {title_link.inner_text().strip()}")
-                    continue
+                ## If the sermon has been processed (i.e., is in the 'media' podcast), skip it.
+                #if podcast_slug == 'media':
+                #    print(f"Skipping sermon (already processed, in 'media' podcast): {title_link.inner_text().strip()}")
+                #    continue
 
                 sermon_data = {
                     "slug": slug,
@@ -408,7 +408,7 @@ class TithelyManager:
             
         description_parts.append(f"In this sermon, {preacher} speaks on the theme of '{title}' as part of the series '{sermon_series}'.")
         if pd.notna(bible_passage) and bible_passage.strip():
-            description_parts.append(f"The bible reading is {bible_passage}.")
+            description_parts.append(f"The Bible reading is {bible_passage}.")
         if post_id_tag:
             description_parts.append(post_id_tag)
             

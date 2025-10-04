@@ -344,6 +344,122 @@ class TithelyManager:
             pass
         return 0
 
+    def get_description_from_form(self):
+        """Gets the current content from the TinyMCE editor in the sermon form."""
+        description = self.page.evaluate('''
+            () => {
+                var editor = tinymce.get('sermon_topic');
+                if (editor) {
+                    return editor.getContent();
+                }
+                // Fallback for plain textarea
+                var textarea = document.getElementById('sermon_topic');
+                if (textarea) {
+                    return textarea.value;
+                }
+                return '';
+            }
+        ''')
+        return description
+
+    def update_description_in_form(self, new_description):
+        """Updates only the description in the sermon form and submits."""
+        form_locator = self.page.locator("form[id^='edit_sermon_']")
+        expect(form_locator).to_be_visible(timeout=5000)
+
+        try:
+            self.page.evaluate('''
+                (newContent) => {
+                    var editor = tinymce.get('sermon_topic');
+                    if (editor) {
+                        editor.setContent(newContent);
+                    } else {
+                        // Fallback for plain textarea
+                        var textarea = document.getElementById('sermon_topic');
+                        if (textarea) {
+                            textarea.value = newContent;
+                        }
+                    }
+                }
+            ''', new_description)
+            print("Updated description in form.")
+        except Exception as e:
+            print(f"❌ ERROR: Could not update description in form. Error: {e}")
+            return False
+
+        print("Submitting the form...")
+        save_button = form_locator.locator("button[type='submit']:has-text('Save Sermon')")
+        save_button.click()
+        try:
+            expect(form_locator).to_be_hidden(timeout=15000)
+            print("✅ Successfully updated description.")
+        except Exception:
+            print("❌ ERROR: Could not confirm successful update (modal did not disappear).")
+            return False
+        return True
+
+    def edit_sermon_description_in_place(self, sermon_data: dict):
+        """Navigates to a sermon's list page, opens the edit modal, and updates the description."""
+        sermon_page_url = sermon_data['page_url']
+        sermon_edit_url = sermon_data['edit_url']
+
+        # It's more efficient to be on the page already
+        if self.page.url != sermon_page_url:
+            print(f"Navigating to sermon list page: {sermon_page_url}")
+            self.page.goto(sermon_page_url)
+            self.page.wait_for_load_state("networkidle")
+            self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=5000)
+
+        print(f"Processing sermon: {sermon_data['title']}")
+        sermon_row_selector = f"tr:has(a.js-sermon-form-link[href='{sermon_edit_url}'])"
+        sermon_row = self.page.locator(sermon_row_selector)
+        
+        if sermon_row.count() == 0:
+            print(f"❌ Could not find the sermon row on page {sermon_page_url}.")
+            return False
+
+        sermon_row.hover()
+        more_button = sermon_row.locator("button[data-toggle='dropdown'][title='More']")
+        more_button.click(force=True)
+        edit_button = self.page.locator(f"a.js-sermon-form-link[href='{sermon_edit_url}']")
+        edit_button.wait_for(state='visible', timeout=5000)
+        edit_button.click()
+        
+        form_locator = self.page.locator("form[id^='edit_sermon_']")
+        try:
+            form_locator.wait_for(state='visible', timeout=10000)
+        except Exception as e:
+            print(f"❌ Modal did not open for sermon: {sermon_data['title']}. Error: {e}")
+            # Attempt to close any lingering modal by pressing Escape
+            self.page.keyboard.press("Escape")
+            # Add a small wait to allow the UI to settle
+            self.page.wait_for_timeout(1000)
+            return False
+
+        # Now the modal is open
+        current_description = self.get_description_from_form()
+        
+        new_description = re.sub(r'\bbible\b', 'Bible', current_description, flags=re.IGNORECASE)
+
+        if new_description == current_description:
+            print("No changes to description needed. Closing modal.")
+            self.page.get_by_role("button", name="Cancel").click()
+            
+            # Wait for modal to close
+            expect(self.page.locator("form[id^='edit_sermon_']")).to_be_hidden(timeout=5000)
+            return True
+
+        success = self.update_description_in_form(new_description)
+        
+        if success:
+            # After submitting, wait for the page to reload to prevent race conditions
+            try:
+                self.page.wait_for_load_state("networkidle", timeout=20000)
+            except Exception as e:
+                print(f"⚠️ Warning: Timed out waiting for page to settle after update. Error: {e}")
+
+        return success
+
     def fill_and_submit_sermon_form(self, sermon_data: dict):
         """Fills and submits the sermon form after the modal is opened."""
         form_locator = self.page.locator("form[id^='edit_sermon_']")

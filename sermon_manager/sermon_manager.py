@@ -63,16 +63,35 @@ def list_remote(page, output, podcast_slug, headless):
 
 @cli.command("list-local")
 @click.option("--limit", default=10, help="The number of sermons to list.")
+@click.option("--audio-file-size", type=int, default=None, help="The audio file size to search for.")
 @click.option("--output", default=None, help="The output file to save the results to (JSON), or 'stdout'.")
-def list_local(limit, output):
+def list_local(limit, audio_file_size, output):
     """List sermons from the local sermons.csv file."""
     click.echo("Listing local sermons...")
     try:
         import pandas as pd
-        df = pd.read_csv("sermons.csv").head(limit)
-        sermons = df.to_dict(orient="records")
+        from core import TithelyManager
+        from tqdm import tqdm
 
-        handle_output(sermons, output)
+        df = pd.read_csv("sermons.csv")
+
+        # Calculate audio_file_size if not present
+        if 'audio_file_size' not in df.columns:
+            click.echo("Calculating audio file sizes... This may take a while.")
+            # Create a dummy manager to access get_file_size
+            with TithelyManager("", "", headless=True) as manager:
+                df['audio_file_size'] = [manager.get_file_size(url) for url in tqdm(df['audio_url'], desc="Fetching file sizes")]
+            click.echo("Audio file sizes calculated.")
+
+        if audio_file_size:
+            sermon = df[df['audio_file_size'] == audio_file_size].to_dict(orient="records")
+            if sermon:
+                handle_output(sermon[0], output)
+            else:
+                click.echo(f"Sermon with audio file size {audio_file_size} not found locally.")
+        else:
+            sermons = df.head(limit).to_dict(orient="records")
+            handle_output(sermons, output)
 
     except FileNotFoundError:
         click.echo("Error: sermons.csv not found.")
@@ -82,8 +101,7 @@ def list_local(limit, output):
 @click.option("--output", default=None, help="The output file to save the results to (JSON).")
 @click.option('--headless', is_flag=True, help='Run the browser in headless mode.')
 def get_remote(slug, output, headless):
-    """Get the details of a single sermon from Tithely."""
-    _echo = click.echo if output != "stdout" else lambda msg: click.echo(msg, err=True)
+    _echo = click.echo if output != "stdout" else lambda msg, **kwargs: click.echo(msg, **kwargs)
     _echo(f"Fetching details for sermon: {slug}...")
     email = os.getenv("TITHELY_EMAIL")
     password = os.getenv("TITHELY_PASSWORD")
@@ -144,6 +162,30 @@ def update(audio_file_size, from_file, from_stdin, page, headless):
 
     except Exception as e:
         click.echo(f"An error occurred: {e}")
+
+@cli.command("get-wordpress-sermon")
+@click.argument("xml_file")
+@click.argument("post_id")
+@click.option("--output", default=None, help="The output file to save the results to (JSON), or 'stdout'.")
+def get_wordpress_sermon(xml_file, post_id, output):
+    """Get a single sermon from a WordPress XML export by post_id."""
+    _echo = click.echo if output != "stdout" else lambda msg: click.echo(msg, err=True)
+    _echo(f"Fetching sermon with post_id {post_id} from {xml_file}...")
+
+    try:
+        from core import WordpressParser
+        parser = WordpressParser(xml_file, _echo=_echo)
+        sermon = parser.get_sermon_by_post_id(post_id)
+        
+        if sermon:
+            handle_output(sermon, output)
+        else:
+            _echo(f"Sermon with post_id {post_id} not found in {xml_file}.")
+
+    except FileNotFoundError:
+        _echo(f"Error: XML file not found at {xml_file}.")
+    except Exception as e:
+        _echo(f"An error occurred: {e}.")
 
 @cli.command("get-file-size")
 @click.argument("url")

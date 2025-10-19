@@ -156,6 +156,67 @@ class TithelyManager:
             self._echo(f"Error getting file size for {url}: {e}")
         return 0
 
+
+import xml.etree.ElementTree as ET
+
+class WordpressParser:
+    def __init__(self, xml_file, _echo=print):
+        self.xml_file = xml_file
+        self._echo = _echo
+        self.tree = ET.parse(xml_file)
+        self.root = self.tree.getroot()
+        self.namespaces = {
+            'wp': 'http://wordpress.org/export/1.2/',
+            'content': 'http://purl.org/rss/1.0/modules/content/',
+            'dc': 'http://purl.org/dc/elements/1.1/',
+            'wfw': 'http://wellformedweb.org/CommentAPI/',
+            'rss20': 'http://backend.userland.com/rss20',
+            'atom': 'http://www.w3.org/2005/Atom',
+            'sy': 'http://purl.org/rss/1.0/modules/syndication/',
+            'slash': 'http://purl.org/rss/1.0/modules/slash/',
+            'itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd',
+            'excerpt': 'http://wordpress.org/export/1.2/excerpt/',
+            'wp': 'http://wordpress.org/export/1.2/'
+        }
+
+    def get_sermon_by_post_id(self, post_id):
+        for item in self.root.findall('channel/item', self.namespaces):
+            post_type = item.find('wp:post_type', self.namespaces)
+            if post_type is not None:
+                self._echo(f"Found item with post_type: {post_type.text}")
+            if post_type is not None and post_type.text == 'wpfc_sermon':
+                current_post_id = item.find('wp:post_id', self.namespaces)
+                if current_post_id is not None:
+                    self._echo(f"Found sermon with post_id: {current_post_id.text}")
+                if current_post_id is not None and current_post_id.text == str(post_id):
+                    return self._parse_sermon_item(item)
+        return None
+
+    def _parse_sermon_item(self, item):
+        title = item.find('title', self.namespaces).text if item.find('title', self.namespaces) is not None else ""
+        content = item.find('content:encoded', self.namespaces).text if item.find('content:encoded', self.namespaces) is not None else ""
+        
+        # Extract custom fields (meta data)
+        meta = {}
+        for postmeta in item.findall('wp:postmeta', self.namespaces):
+            meta_key = postmeta.find('wp:meta_key', self.namespaces)
+            meta_value = postmeta.find('wp:meta_value', self.namespaces)
+            if meta_key is not None and meta_value is not None:
+                meta[meta_key.text] = meta_value.text
+
+        # Extract relevant sermon data
+        sermon_data = {
+            "post_id": item.find('wp:post_id', self.namespaces).text,
+            "title": title,
+            "content": content,
+            "speaker": meta.get('sermon_speaker', ''),
+            "series": meta.get('sermon_series', ''),
+            "bible_passage": meta.get('sermon_passage', ''),
+            "audio_url": meta.get('sermon_audio', ''),
+            "date": item.find('wp:post_date', self.namespaces).text
+        }
+        return sermon_data
+
     def update_sermon(self, audio_file_size, sermon_data, page_number=1):
         """Updates a sermon on Tithely by finding it by its audio file size."""
         self._echo(f"Finding sermon with audio file size {audio_file_size} on page {page_number}...")

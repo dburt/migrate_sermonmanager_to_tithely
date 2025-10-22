@@ -217,6 +217,45 @@ class WordpressParser:
         }
         return sermon_data
 
+def compare_sermons(sermon1, sermon2):
+    """Compares two sermon dictionaries and returns a list of differences."""
+    differences = []
+    keys = set(sermon1.keys()).union(set(sermon2.keys()))
+
+    for key in sorted(list(keys)):
+        val1 = sermon1.get(key)
+        val2 = sermon2.get(key)
+
+        if val1 != val2:
+            differences.append(f"Field '{key}': Local='{val1}', Remote='{val2}'")
+            
+    return differences
+
+
+class TithelyManager:
+    # ... (rest of the class) ...
+
+    def get_sermon_by_audio_file_size(self, audio_file_size, page_number=1):
+        """Gets a sermon from Tithely by finding it by its audio file size."""
+        self._echo(f"Finding sermon with audio file size {audio_file_size} on page {page_number}...")
+        
+        sermons_on_page = self.list_sermons(page_number=page_number)
+        
+        target_sermon_slug = None
+        for sermon in sermons_on_page:
+            details = self.get_sermon_details(sermon['slug'])
+            if details.get('audio_url'):
+                size = self.get_file_size(details['audio_url'])
+                if size == int(audio_file_size):
+                    target_sermon_slug = sermon['slug']
+                    break
+
+        if not target_sermon_slug:
+            raise Exception(f"Sermon with audio file size '{audio_file_size}' not found on page {page_number}.")
+
+        self._echo(f"Found sermon with slug: {target_sermon_slug}")
+        return self.get_sermon_details(target_sermon_slug)
+
     def update_sermon(self, audio_file_size, sermon_data, page_number=1):
         """Updates a sermon on Tithely by finding it by its audio file size."""
         self._echo(f"Finding sermon with audio file size {audio_file_size} on page {page_number}...")

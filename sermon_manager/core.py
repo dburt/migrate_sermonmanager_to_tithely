@@ -1,3 +1,6 @@
+import re
+import json
+import time
 from playwright.sync_api import sync_playwright, expect
 
 class TithelyManager:
@@ -156,85 +159,6 @@ class TithelyManager:
             self._echo(f"Error getting file size for {url}: {e}")
         return 0
 
-
-import xml.etree.ElementTree as ET
-
-class WordpressParser:
-    def __init__(self, xml_file, _echo=print):
-        self.xml_file = xml_file
-        self._echo = _echo
-        self.tree = ET.parse(xml_file)
-        self.root = self.tree.getroot()
-        self.namespaces = {
-            'wp': 'http://wordpress.org/export/1.2/',
-            'content': 'http://purl.org/rss/1.0/modules/content/',
-            'dc': 'http://purl.org/dc/elements/1.1/',
-            'wfw': 'http://wellformedweb.org/CommentAPI/',
-            'rss20': 'http://backend.userland.com/rss20',
-            'atom': 'http://www.w3.org/2005/Atom',
-            'sy': 'http://purl.org/rss/1.0/modules/syndication/',
-            'slash': 'http://purl.org/rss/1.0/modules/slash/',
-            'itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd',
-            'excerpt': 'http://wordpress.org/export/1.2/excerpt/',
-            'wp': 'http://wordpress.org/export/1.2/'
-        }
-
-    def get_sermon_by_post_id(self, post_id):
-        for item in self.root.findall('channel/item', self.namespaces):
-            post_type = item.find('wp:post_type', self.namespaces)
-            if post_type is not None:
-                self._echo(f"Found item with post_type: {post_type.text}")
-            if post_type is not None and post_type.text == 'wpfc_sermon':
-                current_post_id = item.find('wp:post_id', self.namespaces)
-                if current_post_id is not None:
-                    self._echo(f"Found sermon with post_id: {current_post_id.text}")
-                if current_post_id is not None and current_post_id.text == str(post_id):
-                    return self._parse_sermon_item(item)
-        return None
-
-    def _parse_sermon_item(self, item):
-        title = item.find('title', self.namespaces).text if item.find('title', self.namespaces) is not None else ""
-        content = item.find('content:encoded', self.namespaces).text if item.find('content:encoded', self.namespaces) is not None else ""
-        
-        # Extract custom fields (meta data)
-        meta = {}
-        for postmeta in item.findall('wp:postmeta', self.namespaces):
-            meta_key = postmeta.find('wp:meta_key', self.namespaces)
-            meta_value = postmeta.find('wp:meta_value', self.namespaces)
-            if meta_key is not None and meta_value is not None:
-                meta[meta_key.text] = meta_value.text
-
-        # Extract relevant sermon data
-        sermon_data = {
-            "post_id": item.find('wp:post_id', self.namespaces).text,
-            "title": title,
-            "content": content,
-            "speaker": meta.get('sermon_speaker', ''),
-            "series": meta.get('sermon_series', ''),
-            "bible_passage": meta.get('sermon_passage', ''),
-            "audio_url": meta.get('sermon_audio', ''),
-            "date": item.find('wp:post_date', self.namespaces).text
-        }
-        return sermon_data
-
-def compare_sermons(sermon1, sermon2):
-    """Compares two sermon dictionaries and returns a list of differences."""
-    differences = []
-    keys = set(sermon1.keys()).union(set(sermon2.keys()))
-
-    for key in sorted(list(keys)):
-        val1 = sermon1.get(key)
-        val2 = sermon2.get(key)
-
-        if val1 != val2:
-            differences.append(f"Field '{key}': Local='{val1}', Remote='{val2}'")
-            
-    return differences
-
-
-class TithelyManager:
-    # ... (rest of the class) ...
-
     def get_sermon_by_audio_file_size(self, audio_file_size, page_number=1):
         """Gets a sermon from Tithely by finding it by its audio file size."""
         self._echo(f"Finding sermon with audio file size {audio_file_size} on page {page_number}...")
@@ -338,3 +262,292 @@ class TithelyManager:
         save_button.click()
         expect(form_locator).to_be_hidden(timeout=15000)
         self._echo("Sermon update submitted.")
+
+    def scrape_all_listings(self, podcast_slug=None, with_details=False, with_sizes=False):
+        """Paginate through all listing pages and return complete index."""
+        all_sermons = []
+        page_number = 1
+
+        while True:
+            self._echo(f"Scraping page {page_number}...")
+            try:
+                sermons = self.list_sermons(page_number=page_number, podcast_slug=podcast_slug)
+            except Exception as e:
+                self._echo(f"Error on page {page_number}: {e}")
+                break
+
+            if not sermons:
+                self._echo(f"No sermons found on page {page_number}. Done.")
+                break
+
+            all_sermons.extend(sermons)
+            self._echo(f"Found {len(sermons)} sermons on page {page_number} (total: {len(all_sermons)})")
+            page_number += 1
+
+        if with_details or with_sizes:
+            self._echo(f"Fetching details for {len(all_sermons)} sermons...")
+            for i, sermon in enumerate(all_sermons):
+                slug = sermon.get('slug')
+                if not slug or slug == 'Unknown Slug':
+                    continue
+                self._echo(f"[{i+1}/{len(all_sermons)}] {sermon.get('title', slug)}")
+                try:
+                    details = self.get_sermon_details(slug)
+                    sermon.update(details)
+                except Exception as e:
+                    self._echo(f"Error getting details for {slug}: {e}")
+
+                if with_sizes and sermon.get('audio_url'):
+                    sermon['audio_file_size'] = self.get_file_size(sermon['audio_url'])
+
+        return all_sermons
+
+    def _open_edit_form_by_slug(self, slug):
+        """Navigate to the edit form for a sermon by its slug. Returns the form locator."""
+        # Go to the sermon's detail/listing page and find the edit link
+        url = f"{self.base_url}/media/{slug}"
+        self._echo(f"Navigating to {url}...")
+        self.page.goto(url)
+        self.page.wait_for_load_state("networkidle", timeout=15000)
+
+        # Look for an edit link/button on the detail page
+        edit_link = self.page.locator("a[href*='/media/'][href*='/edit'], a:has-text('Edit')")
+        if edit_link.count() > 0:
+            edit_link.first.click()
+        else:
+            # Try direct edit URL pattern
+            self.page.goto(f"{self.base_url}/media/{slug}/edit")
+
+        form_locator = self.page.locator("form[id^='edit_sermon_']")
+        expect(form_locator).to_be_visible(timeout=10000)
+        self._echo("Edit form loaded.")
+        return form_locator
+
+    def _fill_sermon_form(self, form_locator, sermon_data):
+        """Fill a sermon form (edit or create) with the given data."""
+        if 'title' in sermon_data:
+            form_locator.locator("#sermon_title").fill(sermon_data['title'])
+
+        if 'preacher' in sermon_data:
+            speaker_select = form_locator.locator("#sermon_speaker_id")
+            try:
+                speaker_select.select_option(label=sermon_data['preacher'], timeout=2000)
+            except Exception:
+                self._echo(f"Speaker '{sermon_data['preacher']}' not found, using 'Guest Speaker'")
+                speaker_select.select_option(label="Guest Speaker")
+
+        if 'sermon_series' in sermon_data:
+            series_name = sermon_data['sermon_series']
+            if series_name and str(series_name).strip():
+                series_select = form_locator.locator("#sermon_series_id")
+                try:
+                    series_select.select_option(label=series_name, timeout=2000)
+                except Exception:
+                    self._echo(f"Series '{series_name}' not found, creating new.")
+                    series_select.select_option(value="new")
+                    form_locator.locator("#sermon_series_title").fill(series_name)
+
+        if 'bible_passage' in sermon_data:
+            form_locator.locator('[name="sermon[passages]"]').fill(sermon_data['bible_passage'])
+
+        if 'description' in sermon_data:
+            try:
+                self.page.evaluate('''
+                    (newContent) => {
+                        var editor = tinymce.get('sermon_topic');
+                        if (editor) {
+                            editor.setContent(newContent);
+                        }
+                    }
+                ''', sermon_data['description'])
+            except Exception:
+                form_locator.locator("#sermon_topic").fill(sermon_data['description'])
+
+    def update_sermon_by_slug(self, slug, sermon_data):
+        """Update a sermon on Tithely by navigating directly to its edit form via slug."""
+        self._echo(f"Updating sermon: {slug}")
+        form_locator = self._open_edit_form_by_slug(slug)
+        self._fill_sermon_form(form_locator, sermon_data)
+
+        save_button = form_locator.locator("button[type='submit']:has-text('Save Sermon')")
+        save_button.click()
+        expect(form_locator).to_be_hidden(timeout=15000)
+        self._echo(f"Sermon '{slug}' updated successfully.")
+
+    def create_sermon(self, sermon_data):
+        """Create a new sermon on Tithely."""
+        self._echo(f"Creating sermon: {sermon_data.get('title', 'untitled')}")
+        url = f"{self.base_url}/media/new"
+        self.page.goto(url)
+        self.page.wait_for_load_state("networkidle", timeout=15000)
+
+        form_locator = self.page.locator("form[id^='new_sermon'], form[id^='edit_sermon_']")
+        expect(form_locator).to_be_visible(timeout=10000)
+        self._echo("Create form loaded.")
+
+        self._fill_sermon_form(form_locator, sermon_data)
+
+        # Set audio URL if provided
+        if 'audio_url' in sermon_data:
+            audio_field = form_locator.locator("input[name*='audio'], input[type='url']")
+            if audio_field.count() > 0:
+                audio_field.first.fill(sermon_data['audio_url'])
+
+        save_button = form_locator.locator("button[type='submit']:has-text('Save'), button[type='submit']:has-text('Create')")
+        save_button.first.click()
+
+        # Wait for success (form disappears or redirect)
+        self.page.wait_for_load_state("networkidle", timeout=15000)
+        self._echo(f"Sermon '{sermon_data.get('title', 'untitled')}' created.")
+
+    def _ensure_logged_in(self):
+        """Check if still logged in; re-login if needed."""
+        try:
+            self.page.goto(f"{self.base_url}/media/listing")
+            self.page.wait_for_selector("table.table-hover", timeout=5000)
+        except Exception:
+            self._echo("Session expired, re-logging in...")
+            self.login()
+
+    def batch_operate(self, operations, dry_run=False, resume_from=0):
+        """
+        Process a list of update/create operations in one session.
+
+        Each operation is a dict with:
+          - type: 'update' or 'create'
+          - slug: (for update) the sermon slug
+          - data: the sermon data dict
+
+        Returns list of {index, type, slug, success, error} results.
+        """
+        results = []
+        for i, op in enumerate(operations):
+            if i < resume_from:
+                continue
+
+            op_type = op.get('type', 'update')
+            slug = op.get('slug', '')
+            data = op.get('data', {})
+            title = data.get('title', slug)
+
+            self._echo(f"[{i+1}/{len(operations)}] {op_type}: {title}")
+
+            if dry_run:
+                self._echo(f"  DRY RUN - would {op_type} {title}")
+                results.append({'index': i, 'type': op_type, 'slug': slug, 'success': True, 'dry_run': True})
+                continue
+
+            try:
+                self._ensure_logged_in()
+
+                if op_type == 'update':
+                    self.update_sermon_by_slug(slug, data)
+                elif op_type == 'create':
+                    self.create_sermon(data)
+                else:
+                    raise ValueError(f"Unknown operation type: {op_type}")
+
+                results.append({'index': i, 'type': op_type, 'slug': slug, 'success': True})
+
+            except Exception as e:
+                self._echo(f"  ERROR: {e}")
+                results.append({'index': i, 'type': op_type, 'slug': slug, 'success': False, 'error': str(e)})
+
+        return results
+
+    def search_speaker(self, speaker_name, max_pages=50):
+        """Searches for sermons by a specific speaker across multiple pages."""
+        self._echo(f"Searching for sermons by '{speaker_name}'...")
+        found_sermons = []
+        for page_number in range(1, max_pages + 1):
+            self._echo(f"Checking page {page_number}...")
+            try:
+                sermons_on_page = self.list_sermons(page_number=page_number)
+                if not sermons_on_page:
+                    self._echo("No more sermons found.")
+                    break
+                
+                for sermon in sermons_on_page:
+                    if sermon.get('speaker') == speaker_name:
+                        self._echo(f"Found sermon: {sermon['title']} by {speaker_name}")
+                        found_sermons.append(sermon)
+            except Exception as e:
+                self._echo(f"An error occurred on page {page_number}: {e}")
+                break
+        
+        return found_sermons
+
+
+import xml.etree.ElementTree as ET
+
+class WordpressParser:
+    def __init__(self, xml_file, _echo=print):
+        self.xml_file = xml_file
+        self._echo = _echo
+        self.tree = ET.parse(xml_file)
+        self.root = self.tree.getroot()
+        self.namespaces = {
+            'wp': 'http://wordpress.org/export/1.2/',
+            'content': 'http://purl.org/rss/1.0/modules/content/',
+            'dc': 'http://purl.org/dc/elements/1.1/',
+            'wfw': 'http://wellformedweb.org/CommentAPI/',
+            'rss20': 'http://backend.userland.com/rss20',
+            'atom': 'http://www.w3.org/2005/Atom',
+            'sy': 'http://purl.org/rss/1.0/modules/syndication/',
+            'slash': 'http://purl.org/rss/1.0/modules/slash/',
+            'itunes': 'http://www.itunes.com/dtds/podcast-1.0.dtd',
+            'excerpt': 'http://wordpress.org/export/1.2/excerpt/',
+            'wp': 'http://wordpress.org/export/1.2/'
+        }
+
+    def get_sermon_by_post_id(self, post_id):
+        for item in self.root.findall('channel/item', self.namespaces):
+            post_type = item.find('wp:post_type', self.namespaces)
+            if post_type is not None:
+                self._echo(f"Found item with post_type: {post_type.text}")
+            if post_type is not None and post_type.text == 'wpfc_sermon':
+                current_post_id = item.find('wp:post_id', self.namespaces)
+                if current_post_id is not None:
+                    self._echo(f"Found sermon with post_id: {current_post_id.text}")
+                if current_post_id is not None and current_post_id.text == str(post_id):
+                    return self._parse_sermon_item(item)
+        return None
+
+    def _parse_sermon_item(self, item):
+        title = item.find('title', self.namespaces).text if item.find('title', self.namespaces) is not None else ""
+        content = item.find('content:encoded', self.namespaces).text if item.find('content:encoded', self.namespaces) is not None else ""
+        
+        # Extract custom fields (meta data)
+        meta = {}
+        for postmeta in item.findall('wp:postmeta', self.namespaces):
+            meta_key = postmeta.find('wp:meta_key', self.namespaces)
+            meta_value = postmeta.find('wp:meta_value', self.namespaces)
+            if meta_key is not None and meta_value is not None:
+                meta[meta_key.text] = meta_value.text
+
+        # Extract relevant sermon data
+        sermon_data = {
+            "post_id": item.find('wp:post_id', self.namespaces).text,
+            "title": title,
+            "content": content,
+            "speaker": meta.get('sermon_speaker', ''),
+            "series": meta.get('sermon_series', ''),
+            "bible_passage": meta.get('sermon_passage', ''),
+            "audio_url": meta.get('sermon_audio', ''),
+            "date": item.find('wp:post_date', self.namespaces).text
+        }
+        return sermon_data
+
+def compare_sermons(sermon1, sermon2):
+    """Compares two sermon dictionaries and returns a list of differences."""
+    differences = []
+    keys = set(sermon1.keys()).union(set(sermon2.keys()))
+
+    for key in sorted(list(keys)):
+        val1 = sermon1.get(key)
+        val2 = sermon2.get(key)
+
+        if val1 != val2:
+            differences.append(f"Field '{key}': Local='{val1}', Remote='{val2}'")
+            
+    return differences

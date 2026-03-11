@@ -10,6 +10,8 @@
 results/
 transcripts/
 stalfreds.tithelysetup.com/
+archive/data/
+archive/directories/
 
 # Editor artifacts
 .~lock*#

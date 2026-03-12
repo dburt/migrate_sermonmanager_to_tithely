@@ -8,7 +8,7 @@ class TithelyManager:
         self.email = email
         self.password = password
         self.headless = headless
-        self.base_url = "https://stalfreds.tithelysetup.com"
+        self.base_url = "https://stalfreds.org"
         self.playwright = None
         self.browser = None
         self.page = None

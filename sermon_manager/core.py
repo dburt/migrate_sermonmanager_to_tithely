@@ -302,26 +302,44 @@ class TithelyManager:
 
         return all_sermons
 
-    def _open_edit_form_by_slug(self, slug):
-        """Navigate to the edit form for a sermon by its slug. Returns the form locator."""
-        # Go to the sermon's detail/listing page and find the edit link
-        url = f"{self.base_url}/media/{slug}"
-        self._echo(f"Navigating to {url}...")
-        self.page.goto(url)
-        self.page.wait_for_load_state("networkidle", timeout=15000)
+    def _open_edit_form_by_slug(self, slug, page_number=None):
+        """Open the edit modal for a sermon by finding it on the listing page.
 
-        # Look for an edit link/button on the detail page
-        edit_link = self.page.locator("a[href*='/media/'][href*='/edit'], a:has-text('Edit')")
-        if edit_link.count() > 0:
-            edit_link.first.click()
+        If page_number is given, goes directly to that page. Otherwise searches
+        pages sequentially until the slug is found.
+        """
+        if page_number:
+            pages_to_try = [page_number]
         else:
-            # Try direct edit URL pattern
-            self.page.goto(f"{self.base_url}/media/{slug}/edit")
+            pages_to_try = range(1, 100)
 
-        form_locator = self.page.locator("form[id^='edit_sermon_']")
-        expect(form_locator).to_be_visible(timeout=10000)
-        self._echo("Edit form loaded.")
-        return form_locator
+        for pg in pages_to_try:
+            self._echo(f"Looking for {slug} on listing page {pg}...")
+            self.page.goto(f"{self.base_url}/media/listing?page={pg}")
+            self.page.wait_for_selector("table.table-hover.table-align-middle.table-nowrap", timeout=10000)
+
+            sermon_row = self.page.locator(f"tr:has(a[href='/media/{slug}'])")
+            if sermon_row.count() == 0:
+                # Check if page is empty (no more pages)
+                rows = self.page.locator("table.table-hover.table-align-middle.table-nowrap tr")
+                if rows.count() <= 1:
+                    break
+                continue
+
+            # Found it — open the edit modal via the dropdown
+            edit_link = sermon_row.locator("a.js-sermon-form-link").first
+            sermon_row.hover()
+            more_button = sermon_row.locator("button[data-toggle='dropdown']")
+            more_button.click(force=True)
+            edit_link.wait_for(state='visible', timeout=5000)
+            edit_link.click()
+
+            form_locator = self.page.locator("form[id^='edit_sermon_']")
+            expect(form_locator).to_be_visible(timeout=10000)
+            self._echo("Edit form loaded.")
+            return form_locator
+
+        raise Exception(f"Sermon with slug '{slug}' not found on any listing page.")
 
     def _fill_sermon_form(self, form_locator, sermon_data):
         """Fill a sermon form (edit or create) with the given data."""
@@ -363,10 +381,10 @@ class TithelyManager:
             except Exception:
                 form_locator.locator("#sermon_topic").fill(sermon_data['description'])
 
-    def update_sermon_by_slug(self, slug, sermon_data):
-        """Update a sermon on Tithely by navigating directly to its edit form via slug."""
+    def update_sermon_by_slug(self, slug, sermon_data, page_number=None):
+        """Update a sermon on Tithely by finding it on the listing page and opening the edit modal."""
         self._echo(f"Updating sermon: {slug}")
-        form_locator = self._open_edit_form_by_slug(slug)
+        form_locator = self._open_edit_form_by_slug(slug, page_number=page_number)
         self._fill_sermon_form(form_locator, sermon_data)
 
         save_button = form_locator.locator("button[type='submit']:has-text('Save Sermon')")
@@ -441,7 +459,7 @@ class TithelyManager:
                 self._ensure_logged_in()
 
                 if op_type == 'update':
-                    self.update_sermon_by_slug(slug, data)
+                    self.update_sermon_by_slug(slug, data, page_number=op.get('page_number'))
                 elif op_type == 'create':
                     self.create_sermon(data)
                 else:

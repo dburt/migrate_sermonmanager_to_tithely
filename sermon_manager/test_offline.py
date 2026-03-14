@@ -58,14 +58,14 @@ def test_gap_analysis_basic():
          'post_date_gmt': ''},
     ])
     remote_path = make_remote_json([
-        {'slug': 'sermon-a', 'title': 'Sermon A', 'speaker': 'John', 'series': 'Series 1',
-         'passage': 'Gen 1:1', 'description': 'Desc A', 'audio_url': 'http://a.mp3',
+        {'slug': 'sermon-a', 'title': 'Sermon A', 'speaker': 'John', 'sermon_series': 'Series 1',
+         'bible_passage': 'Gen 1:1', 'description': 'Desc A', 'audio_url': 'http://a.mp3',
          'audio_file_size': 12345},
         {'slug': 'sermon-b', 'title': 'WRONG TITLE', 'speaker': 'Wrong Speaker',
-         'series': 'Series 2', 'passage': 'Gen 2:1', 'description': 'Desc B',
+         'sermon_series': 'Series 2', 'bible_passage': 'Gen 2:1', 'description': 'Desc B',
          'audio_url': 'http://b.mp3', 'audio_file_size': 67890},
-        {'slug': 'extra-sermon', 'title': 'Extra', 'speaker': 'Nobody', 'series': '',
-         'passage': '', 'description': '', 'audio_url': 'http://e.mp3',
+        {'slug': 'extra-sermon', 'title': 'Extra', 'speaker': 'Nobody', 'sermon_series': '',
+         'bible_passage': '', 'description': '', 'audio_url': 'http://e.mp3',
          'audio_file_size': 99999},
     ])
 
@@ -89,8 +89,8 @@ def test_prepare_updates():
          'audio_file_size': '67890', 'post_date_gmt': ''},
     ])
     remote_path = make_remote_json([
-        {'slug': 'sermon-b', 'title': 'WRONG', 'speaker': 'Wrong', 'series': 'S',
-         'passage': '', 'description': '', 'audio_url': 'http://b.mp3',
+        {'slug': 'sermon-b', 'title': 'WRONG', 'speaker': 'Wrong', 'sermon_series': 'S',
+         'bible_passage': '', 'description': '', 'audio_url': 'http://b.mp3',
          'audio_file_size': 67890},
     ])
 
@@ -137,7 +137,7 @@ def test_format_summary():
          'post_date_gmt': ''},
     ])
     remote_path = make_remote_json([
-        {'slug': 'a', 'title': 'A', 'speaker': '', 'series': '', 'passage': '',
+        {'slug': 'a', 'title': 'A', 'speaker': '', 'sermon_series': '', 'bible_passage': '',
          'description': '', 'audio_url': 'http://a.mp3', 'audio_file_size': 100},
     ])
 

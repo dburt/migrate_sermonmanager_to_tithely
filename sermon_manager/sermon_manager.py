@@ -568,8 +568,9 @@ def batch_update(from_file, dry_run, headless, resume_from):
         operations = []
         for u in updates:
             operations.append({
-                'type': 'update',
+                'type': u.get('type', 'update'),
                 'slug': u['slug'],
+                'page_number': u.get('page_number'),
                 'data': u.get('updates', u.get('data', {})),
             })
 

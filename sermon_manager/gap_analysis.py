@@ -36,8 +36,8 @@ FIELD_MAP = {
     # wordpress_field: tithely_field
     'title': 'title',
     'preacher': 'speaker',
-    'sermon_series': 'series',
-    'bible_passage': 'passage',
+    'sermon_series': 'sermon_series',
+    'bible_passage': 'bible_passage',
     'content_text': 'description',
     'audio_url': 'audio_url',
 }

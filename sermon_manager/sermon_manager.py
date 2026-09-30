@@ -523,7 +523,7 @@ def _site_json(sermons):
             'view_count': m.get('view_count') or 0,
             'melbourne_time': m.get('melbourne_time') or '',
             'slug': slug,
-            'transcript': m.get('transcript') or '',
+            'has_transcript': bool((m.get('transcript') or '').strip()),
         })
     # Newest first; rows with no date sink to the bottom
     out.sort(key=lambda s: s['post_date_gmt'], reverse=True)
@@ -532,25 +532,62 @@ def _site_json(sermons):
 
 @cli.command("export")
 @click.option("--db", "db_path", default=None, help=f"Path to the SQLite database (default: {db.DEFAULT_DB_PATH}).")
-@click.option("--out-dir", "out_dir", default="sermon-archive", help="Directory for sermons.json and podcast_feed.xml.")
+@click.option("--out-dir", "out_dir", default="sermon-archive", help="Directory for sermons.json, podcast_feed.xml and transcripts/.")
 def export_cmd(db_path, out_dir):
-    """Export the mirror DB to static site assets (sermons.json + podcast_feed.xml)."""
+    """Export the mirror DB to static site assets (sermons.json + podcast_feed.xml).
+
+    Transcripts are written as per-sermon files under <out-dir>/transcripts/<slug>.json
+    and fetched on demand by the site, rather than embedded in sermons.json.
+    """
     if db_path is None:
         db_path = db.DEFAULT_DB_PATH
 
     conn = db.connect(db_path)
     db.init_db(conn)
-    sermons = _site_json(db.get_sermons_with_transcripts(conn))
+    sermons = db.get_sermons_with_transcripts(conn)
 
     os.makedirs(out_dir, exist_ok=True)
+    written = _write_transcript_files(sermons, out_dir)
+
+    site = _site_json(sermons)
     json_path = os.path.join(out_dir, 'sermons.json')
     with open(json_path, 'w', encoding='utf-8') as f:
-        json.dump(sermons, f, ensure_ascii=False)
-    click.echo(f"Exported {len(sermons)} sermons to {json_path}")
+        json.dump(site, f, ensure_ascii=False)
+    click.echo(f"Exported {len(site)} sermons to {json_path}")
 
     rss_path = os.path.join(out_dir, 'podcast_feed.xml')
-    _write_rss_feed(sermons, rss_path)
+    _write_rss_feed(site, rss_path)
     click.echo(f"Exported RSS feed to {rss_path}")
+    click.echo(f"Exported {written} transcripts to {os.path.join(out_dir, 'transcripts')}")
+
+
+def _write_transcript_files(sermons, out_dir):
+    """Write one transcripts/<slug>.json per sermon that has a transcript."""
+    import re
+
+    transcripts_dir = os.path.join(out_dir, 'transcripts')
+    os.makedirs(transcripts_dir, exist_ok=True)
+    current = set()
+    written = 0
+    for m in sermons:
+        text = (m.get('transcript') or '').strip()
+        slug = m.get('slug') or ''
+        if not text or not slug:
+            continue
+        current.add(slug)
+        payload = {
+            'slug': slug,
+            'title': m.get('title') or '',
+            'transcript': text,
+            'word_count': len(re.findall(r"\b\w+\b", text)),
+        }
+        with open(os.path.join(transcripts_dir, f"{slug}.json"), 'w', encoding='utf-8') as f:
+            json.dump(payload, f, ensure_ascii=False)
+        written += 1
+    for stale in os.listdir(transcripts_dir):
+        if stale.endswith('.json') and stale[:-5] not in current:
+            os.remove(os.path.join(transcripts_dir, stale))
+    return written
 
 
 def _write_rss_feed(sermons, rss_path):

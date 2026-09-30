@@ -11,3 +11,7 @@ rsync --verbose --copy-links \
     sermon-archive/sermons.json \
     sermon-archive/podcast_feed.xml \
     illuminu@burt.id.au:dave.burt.id.au/
+
+rsync --verbose --copy-links -r \
+    sermon-archive/transcripts/ \
+    illuminu@burt.id.au:dave.burt.id.au/transcripts/

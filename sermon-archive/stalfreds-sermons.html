@@ -594,10 +594,10 @@
                 </div>
                 <hr>
                 <div class="sermon-body">${sermon.content_text || sermon.description || ''}</div>
-                ${sermon.transcript ? `
+                ${sermon.has_transcript ? `
                 <div class="transcript-section">
-                    <button class="transcript-toggle" id="transcript-toggle" onclick="toggleTranscript()">Show Transcript (${sermon.transcript.trim().split(/\s+/).length} words)</button>
-                    <div class="transcript-content" id="transcript-content" style="display:none">${escapeHtml(sermon.transcript)}</div>
+                    <button class="transcript-toggle" id="transcript-toggle" onclick="toggleTranscript('${sermon.slug}')">Show Transcript</button>
+                    <div class="transcript-content" id="transcript-content" style="display:none"></div>
                 </div>` : ''}
                 <div class="related-sermons">
                     <div class="row">
@@ -624,13 +624,33 @@
             return div.innerHTML;
         }
 
-        function toggleTranscript() {
+        const transcriptCache = {};
+
+        async function toggleTranscript(slug) {
             const content = document.getElementById('transcript-content');
             const btn = document.getElementById('transcript-toggle');
-            if (!content) return;
+            if (!content || !btn || !slug) return;
+
+            if (content.getAttribute('data-loaded') !== '1') {
+                if (!transcriptCache[slug]) {
+                    btn.textContent = 'Loading...';
+                    try {
+                        const res = await fetch(`transcripts/${encodeURIComponent(slug)}.json`);
+                        if (!res.ok) throw new Error('no transcript');
+                        const data = await res.json();
+                        transcriptCache[slug] = data.transcript || '';
+                    } catch (e) {
+                        btn.textContent = 'Transcript unavailable';
+                        return;
+                    }
+                }
+                content.innerHTML = escapeHtml(transcriptCache[slug]);
+                content.setAttribute('data-loaded', '1');
+            }
+
             const hidden = content.style.display === 'none' || !content.style.display;
             content.style.display = hidden ? 'block' : 'none';
-            if (btn) btn.textContent = hidden ? 'Hide Transcript' : 'Show Transcript';
+            btn.textContent = hidden ? 'Hide Transcript' : 'Show Transcript';
         }
     </script>
 

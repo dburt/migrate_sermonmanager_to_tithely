@@ -965,5 +965,41 @@ def transcribe_remote_cmd(db_path, model, limit, batch_size):
     run_remote_transcribe(conn, limit=limit, batch_size=batch_size, model=model, echo=click.echo)
 
 
+@cli.command("status")
+@click.option("--db", "db_path", default=None, help=f"Path to the SQLite database (default: {db.DEFAULT_DB_PATH}).")
+@click.option("--watch", "watch", type=int, default=0, help="Poll every N seconds (e.g. 60).")
+@click.option("--json", "as_json", is_flag=True, help="Emit a JSON snapshot to stdout.")
+def status_cmd(db_path, watch, as_json):
+    """Show transcription progress and estimated completion time."""
+    import time as _time
+    import json as _json
+    import os as _os
+    from monitor import status_report, _save_baseline, _drain_pid, _process_start, \
+        _remote_done_count, BASELINE_PATH
+
+    if db_path is None:
+        db_path = db.DEFAULT_DB_PATH
+
+    _echo = None if as_json else click.echo
+
+    first = True
+    while True:
+        conn = db.connect(db_path)
+        db.init_db(conn)
+        if first and not _os.path.exists(BASELINE_PATH):
+            pid = _drain_pid()
+            if pid and _process_start(pid):
+                _save_baseline(pid, _process_start(pid), _remote_done_count(),
+                               conn.execute("SELECT COUNT(*) c FROM transcriptions").fetchone()["c"])
+        report = status_report(conn, _echo=_echo)
+        if as_json:
+            click.echo(_json.dumps(report))
+        conn.close()
+        if not watch:
+            break
+        first = False
+        _time.sleep(watch)
+
+
 if __name__ == '__main__':
     cli()

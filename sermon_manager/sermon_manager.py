@@ -911,5 +911,22 @@ def transcribe_cmd(db_path, model, limit, title_filter):
     transcribe_missing(conn, model_name=model, limit=limit, title_filter=title_filter, _echo=click.echo)
 
 
+@cli.command("transcribe-remote")
+@click.option("--db", "db_path", default=None, help=f"Path to the SQLite database (default: {db.DEFAULT_DB_PATH}).")
+@click.option("--model", default="medium", help="faster-whisper model name (default: medium).")
+@click.option("--limit", type=int, default=None, help="Queue at most N pending sermons.")
+@click.option("--batch-size", "batch_size", type=int, default=10, help="Sermons per worker invocation (default: 10).")
+def transcribe_remote_cmd(db_path, model, limit, batch_size):
+    """Transcribe sermons on the Hyperion GPU via ssh + rclone and import results."""
+    if db_path is None:
+        db_path = db.DEFAULT_DB_PATH
+
+    conn = db.connect(db_path)
+    db.init_db(conn)
+
+    from remote_transcribe import run_remote_transcribe
+    run_remote_transcribe(conn, limit=limit, batch_size=batch_size, model=model, echo=click.echo)
+
+
 if __name__ == '__main__':
     cli()

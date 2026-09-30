@@ -61,10 +61,7 @@ CREATE TABLE IF NOT EXISTS transcriptions (
     transcript_text TEXT NOT NULL,
     word_count INTEGER,
     created_at TEXT DEFAULT CURRENT_TIMESTAMP,
-    CHECK (
-        (tithely_sermon_id IS NOT NULL AND wordpress_sermon_id IS NULL) OR
-        (tithely_sermon_id IS NULL AND wordpress_sermon_id IS NOT NULL)
-    )
+    CHECK (tithely_sermon_id IS NOT NULL OR wordpress_sermon_id IS NOT NULL)
 );
 
 CREATE INDEX IF NOT EXISTS idx_wp_audio_size ON wordpress_sermons(audio_file_size);
@@ -101,8 +98,37 @@ def connect(db_path=DEFAULT_DB_PATH):
 def init_db(conn):
     """Create tables/views if needed; rebuild the derived v_sermons view."""
     conn.executescript(SCHEMA)
+    _migrate_transcriptions_check(conn)
     conn.execute("DROP VIEW IF EXISTS v_sermons")
     conn.executescript(CREATE_VIEW)
+
+
+def _migrate_transcriptions_check(conn):
+    """Rebuild `transcriptions` if it still has the old exactly-one-source CHECK."""
+    row = conn.execute(
+        "SELECT sql FROM sqlite_master WHERE type='table' AND name='transcriptions'"
+    ).fetchone()
+    if row and "wordpress_sermon_id IS NULL" in (row["sql"] or ""):
+        conn.executescript("""
+            PRAGMA foreign_keys = OFF;
+            BEGIN;
+            CREATE TABLE _transcriptions_new (
+                id INTEGER PRIMARY KEY AUTOINCREMENT,
+                tithely_sermon_id INTEGER REFERENCES tithely_sermons(id) ON DELETE CASCADE,
+                wordpress_sermon_id INTEGER REFERENCES wordpress_sermons(id) ON DELETE CASCADE,
+                transcript_text TEXT NOT NULL,
+                word_count INTEGER,
+                created_at TEXT DEFAULT CURRENT_TIMESTAMP,
+                CHECK (tithely_sermon_id IS NOT NULL OR wordpress_sermon_id IS NOT NULL)
+            );
+            INSERT INTO _transcriptions_new SELECT * FROM transcriptions;
+            DROP TABLE transcriptions;
+            ALTER TABLE _transcriptions_new RENAME TO transcriptions;
+            COMMIT;
+            PRAGMA foreign_keys = ON;
+            CREATE INDEX IF NOT EXISTS idx_tr_tithely ON transcriptions(tithely_sermon_id);
+            CREATE INDEX IF NOT EXISTS idx_tr_wordpress ON transcriptions(wordpress_sermon_id);
+        """)
 
 # --- View: merged canonical record -------------------------------------------------
 
@@ -397,9 +423,12 @@ def get_merged_transcripts(conn):
 
 
 def add_transcription(conn, transcript_text, tithely_sermon_id=None, wordpress_sermon_id=None):
-    """Add a transcription attached to exactly one source sermon."""
-    if bool(tithely_sermon_id) == bool(wordpress_sermon_id):
-        raise ValueError("Exactly one of tithely_sermon_id or wordpress_sermon_id is required")
+    """Add a transcription attached to at least one source sermon.
+
+    A merged sermon (same audio on both legacy and Tithely) may set both ids.
+    """
+    if not (tithely_sermon_id or wordpress_sermon_id):
+        raise ValueError("At least one of tithely_sermon_id or wordpress_sermon_id is required")
     word_count = len(re.findall(r"\b\w+\b", transcript_text or ""))
     cur = conn.cursor()
     cur.execute("""

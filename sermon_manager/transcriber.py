@@ -12,15 +12,9 @@ import tempfile
 
 
 def _initial_prompt(sermon):
-    """Build a faster-whisper initial prompt from sermon metadata."""
-    lines = [f"The sermon title is: {sermon.get('title') or ''}."]
-    if sermon.get('sermon_series'):
-        lines.append(f"Sermon series: {sermon['sermon_series']}.")
-    if sermon.get('speaker'):
-        lines.append(f"Preacher: {sermon['speaker']}.")
-    if sermon.get('bible_passage'):
-        lines.append(f"Bible passage: {sermon['bible_passage']}.")
-    return ' '.join(lines)
+    """Build a faster-whisper initial prompt from metadata + NIV passage text."""
+    from bible_prompt import build_sermon_prompt
+    return build_sermon_prompt(sermon)
 
 
 def _fetch_audio(sermon, dest_path, _echo=print):

@@ -76,6 +76,17 @@
         .sermon-detail .related-sermons { margin-top: 20px; }
         .back-button { display: inline-block; margin-bottom: 20px; cursor: pointer; color: #007bff; font-weight: bold; }
         audio { width: 100%; margin-top: 20px; }
+        .transcript-section { margin-top: 20px; }
+        .transcript-toggle {
+            background: #0056b3; color: white; border: none; padding: 10px 18px;
+            border-radius: 4px; cursor: pointer; font-size: 0.95em;
+        }
+        .transcript-toggle:hover { background: #003d80; }
+        .transcript-content {
+            background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px;
+            padding: 18px; margin-top: 10px; max-height: 60vh; overflow-y: auto;
+            line-height: 1.6; white-space: pre-wrap; font-size: 0.95em;
+        }
         #pagination { display: flex; justify-content: center; align-items: center; padding: 20px 0; }
         #pagination a, #pagination span {
             display: inline-block;
@@ -582,7 +593,12 @@
                     </div>
                 </div>
                 <hr>
-                <div class="sermon-body">${sermon.content_text || ''}</div>
+                <div class="sermon-body">${sermon.content_text || sermon.description || ''}</div>
+                ${sermon.transcript ? `
+                <div class="transcript-section">
+                    <button class="transcript-toggle" id="transcript-toggle" onclick="toggleTranscript()">Show Transcript (${sermon.transcript.trim().split(/\s+/).length} words)</button>
+                    <div class="transcript-content" id="transcript-content" style="display:none">${escapeHtml(sermon.transcript)}</div>
+                </div>` : ''}
                 <div class="related-sermons">
                     <div class="row">
                         ${relatedBySeriesHtml}
@@ -600,6 +616,21 @@
             sermonListContainer.style.display = 'grid';
             filtersContainer.style.display = 'flex';
             activeFilterContainer.style.display = 'block';
+        }
+
+        function escapeHtml(text) {
+            const div = document.createElement('div');
+            div.textContent = text == null ? '' : String(text);
+            return div.innerHTML;
+        }
+
+        function toggleTranscript() {
+            const content = document.getElementById('transcript-content');
+            const btn = document.getElementById('transcript-toggle');
+            if (!content) return;
+            const hidden = content.style.display === 'none' || !content.style.display;
+            content.style.display = hidden ? 'block' : 'none';
+            if (btn) btn.textContent = hidden ? 'Hide Transcript' : 'Show Transcript';
         }
     </script>
 

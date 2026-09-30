@@ -1,5 +1,6 @@
 import re
 import json
+import os
 import time
 from playwright.sync_api import sync_playwright, expect
 
@@ -27,6 +28,7 @@ class TithelyManager:
         self.playwright = sync_playwright().start()
         self._echo("Playwright started.")
         self.browser = self.playwright.chromium.launch(
+            executable_path=self._chromium_path(),
             headless=self.headless,
             slow_mo=50
         )
@@ -34,6 +36,23 @@ class TithelyManager:
         self.page = self.browser.new_page()
         self._echo("New page created.")
         self._echo("Browser started.")
+
+    def _chromium_path(self):
+        """Resolve a Chromium binary, preferring a system install.
+
+        Playwright's bundled browser builds are not always available for every
+        distro (e.g. Ubuntu 26.04), so fall back to a system Chromium/Chrome.
+        """
+        for path in (
+            os.environ.get("PLAYWRIGHT_CHROMIUM_PATH"),
+            "/usr/bin/google-chrome",
+            "/usr/bin/google-chrome-stable",
+            "/usr/bin/chromium-browser",
+            "/snap/bin/chromium",
+        ):
+            if path and os.path.exists(path):
+                return path
+        return None
 
     def stop_browser(self):
         """Stops the Playwright browser instance."""

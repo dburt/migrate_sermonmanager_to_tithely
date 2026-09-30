@@ -3,6 +3,7 @@
 import json
 import os
 import re
+import subprocess
 import requests
 from pathlib import Path
 
@@ -204,4 +205,119 @@ def mirror_audio(index_path, output_dir, dry_run=False, resume=True, _echo=print
     }
     _echo(f"\n=== Mirror Complete ===")
     _echo(f"Downloaded: {succeeded}, Failed: {failed}, Skipped: {already_done}")
+    return summary
+
+
+# --- rclone (streaming) mirror --------------------------------------------------------
+
+def remote_file_size(rclone_remote):
+    """Return size (bytes) of a remote file via rclone, or None if absent/error."""
+    try:
+        proc = subprocess.run(
+            ['rclone', 'size', rclone_remote, '--json'],
+            capture_output=True, text=True, timeout=60,
+        )
+        if proc.returncode == 0:
+            import json as _json
+            info = _json.loads(proc.stdout)
+            return int(info.get('bytes', 0))
+    except Exception:
+        pass
+    return None
+
+
+def stream_to_rclone(url, rclone_target, expected_size=None, _echo=print):
+    """
+    Stream a URL into an rclone remote path without touching local disk.
+
+    Skips (returns 'skipped') when the remote file already exists with the
+    expected size. Returns 'ok', 'skipped', or raises on failure.
+    """
+    if expected_size:
+        existing = remote_file_size(rclone_target)
+        if existing is not None and existing == expected_size:
+            _echo(f"  Already on remote: {rclone_target} ({existing} bytes)")
+            return 'skipped'
+
+    _echo(f"  Streaming {url} -> {rclone_target} ...")
+    response = requests.get(url, stream=True, timeout=60)
+    response.raise_for_status()
+
+    proc = subprocess.Popen(
+        ['rclone', 'rcat', rclone_target],
+        stdin=subprocess.PIPE,
+    )
+    try:
+        for chunk in response.iter_content(chunk_size=1024 * 1024):
+            if chunk:
+                proc.stdin.write(chunk)
+    finally:
+        proc.stdin.close()
+        response.close()
+    proc.wait()
+
+    if proc.returncode != 0:
+        raise RuntimeError(f"rclone rcat failed with exit code {proc.returncode} for {rclone_target}")
+    return 'ok'
+
+
+def mirror_audio_db(conn, rclone_remote='hyperion:/D:/stalfreds_audio', dry_run=False, _echo=print):
+    """
+    Mirror audio for sermons in the DB that lack a local audio path.
+
+    Each file is streamed straight from its CDN URL into the rclone remote
+    (no local disk usage). Successful transfers record local_audio_path.
+    Returns a summary dict.
+    """
+    from db import get_pending_audio, record_local_audio
+
+    if rclone_remote.endswith('/'):
+        rclone_remote = rclone_remote[:-1]
+
+    pending = get_pending_audio(conn)
+    if not pending:
+        _echo("No sermon audio pending mirror.")
+        return {'total': 0, 'ok': 0, 'skipped': 0, 'failed': 0}
+
+    _echo(f"=== Audio Mirror to {rclone_remote} ===")
+    _echo(f"{len(pending)} sermons pending audio.")
+
+    ok_count = skipped_count = failed_count = unavailable_count = 0
+    for i, s in enumerate(pending, 1):
+        url = s.get('audio_url') or ''
+        slug = s.get('slug') or ''
+        if not url or not slug:
+            _echo(f"[{i}/{len(pending)}] SKIP (no audio_url/slug): {s.get('title', '?')}")
+            unavailable_count += 1
+            continue
+
+        target = f"{rclone_remote}/{slug}.mp3"
+        title = s.get('title') or slug
+        _echo(f"[{i}/{len(pending)}] {title}")
+
+        if dry_run:
+            _echo(f"  DRY RUN: would stream {url} -> {target}")
+            ok_count += 1
+            continue
+
+        try:
+            status = stream_to_rclone(url, target, expected_size=s.get('audio_file_size') or None, _echo=_echo)
+            if status == 'ok':
+                record_local_audio(conn, slug, target)
+                ok_count += 1
+            else:
+                skipped_count += 1
+        except Exception as e:
+            _echo(f"  ERROR: {e}")
+            failed_count += 1
+
+    summary = {
+        'total': len(pending),
+        'ok': ok_count,
+        'skipped': skipped_count,
+        'failed': failed_count,
+        'unavailable': unavailable_count,
+    }
+    _echo(f"\n=== Audio Mirror Complete ===")
+    _echo(f"Streamed: {ok_count}, Already present: {skipped_count}, Failed: {failed_count}, No audio: {unavailable_count}")
     return summary

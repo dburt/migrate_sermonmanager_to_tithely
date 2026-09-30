@@ -23,5 +23,9 @@ __pycache__
 # Screenshots
 *.png
 
+# Sermon mirror (generated)
+sermons.db
+logs/
+
 # Environment variables
 .env

@@ -1,6 +1,7 @@
 #!/usr/bin/env -S uv run --script
 
 import os
+import json
 import click
 from dotenv import load_dotenv
 
@@ -9,6 +10,7 @@ load_dotenv()
 
 from utils import handle_output
 import core
+import db
 
 @click.group()
 def cli():
@@ -414,6 +416,224 @@ def refresh_index(existing_index, pages, headless):
         click.echo(f"An error occurred: {e}", err=True)
 
 
+# --- Phase 3b: Mirror Sync ---
+
+@cli.command("sync")
+@click.option("--full", is_flag=True, help="Full re-scrape of all pages + details.")
+@click.option("--limit-pages", default=100, help="Max pages to scan in incremental mode.")
+@click.option("--db", "db_path", default=None, help=f"Path to the SQLite database (default: {db.DEFAULT_DB_PATH}).")
+@click.option("--headless", is_flag=True, help="Run browser in headless mode.")
+def sync_cmd(full, limit_pages, db_path, headless):
+    """Sync Tithely sermons into the local SQLite mirror.
+
+    Incremental mode (default) scans listing pages until a page with no new
+    slugs is found, fetching details only for newly seen sermons. --full
+    re-scrapes everything with details and audio sizes.
+    """
+    email, password = _get_credentials()
+    if not email:
+        return
+
+    if db_path is None:
+        db_path = db.DEFAULT_DB_PATH
+    conn = db.connect(db_path)
+    db.init_db(conn)
+
+    from core import TithelyManager
+    with TithelyManager(email, password, headless=headless, _echo=click.echo) as manager:
+        manager.login()
+
+        if full:
+            click.echo("Full sync: scraping all listings with details + sizes...")
+            sermons = manager.scrape_all_listings(with_details=True, with_sizes=True)
+            res = db.upsert_tithely(conn, sermons)
+            click.echo(f"Full sync result: {res['new']} new, {res['updated']} updated.")
+        else:
+            res = {'new': 0, 'updated': 0, 'unchanged': 0}
+            existing = db.get_tithely_slugs(conn)
+            for page in range(1, limit_pages + 1):
+                try:
+                    sermons = manager.list_sermons(page_number=page)
+                except Exception as e:
+                    click.echo(f"Error on page {page}: {e}", err=True)
+                    break
+                if not sermons:
+                    click.echo(f"No sermons on page {page}. Scan complete.")
+                    break
+
+                new_on_page = [s for s in sermons if s.get('slug') not in existing]
+                click.echo(f"Page {page}: {len(sermons)} sermons, {len(new_on_page)} new")
+
+                # Fetch details + sizes only for newly seen sermons
+                for i, s in enumerate(new_on_page, 1):
+                    slug = s.get('slug')
+                    click.echo(f"  [{i}/{len(new_on_page)}] fetching details: {slug}")
+                    try:
+                        details = manager.get_sermon_details(slug)
+                        s.update(details)
+                        if s.get('audio_url'):
+                            s['audio_file_size'] = manager.get_file_size(s['audio_url'])
+                    except Exception as e:
+                        click.echo(f"  ERROR {slug}: {e}", err=True)
+
+                page_res = db.upsert_tithely(conn, new_on_page)
+                res['new'] += page_res['new']
+                res['updated'] += page_res['updated']
+                res['unchanged'] += page_res['unchanged']
+                existing |= {s.get('slug') for s in sermons}
+
+                if not new_on_page:
+                    click.echo(f"No new sermons on page {page}. Stopping scan.")
+                    break
+
+    n = db.refresh_fts(conn)
+    click.echo(
+        f"Sync complete: {res['new']} new, {res['updated']} updated, "
+        f"{res['unchanged']} unchanged. FTS index refreshed ({n} rows)."
+    )
+
+
+# --- Phase 3c: Export ---
+
+def _site_json(sermons):
+    """Convert merged DB records into the site/feed JSON shape."""
+    out = []
+    for m in sermons:
+        slug = m.get('slug') or ''
+        wp_link = m.get('permalink') or ''
+        permalink = wp_link if wp_link else f"https://stalfreds.org/media/{slug}"
+        out.append({
+            'post_id': m.get('wordpress_post_id') or '',
+            'title': m.get('title') or '',
+            'post_date_gmt': m.get('post_date_gmt') or '',
+            'perm': permalink,
+            'permalink': permalink,
+            'status': 'publish',
+            'guid': permalink,
+            'content_text': m.get('content_text') or '',
+            'description': m.get('description') or '',
+            'preacher': m.get('speaker') or m.get('preacher') or '',
+            'sermon_series': m.get('sermon_series') or '',
+            'service_type': m.get('service_type') or '',
+            'bible_book': '',
+            'sermon_topics': m.get('sermon_topics') or m.get('topics') or '',
+            'audio_url': m.get('audio_url') or '',
+            'audio_file_size': m.get('audio_file_size') or 0,
+            'bible_passage': m.get('bible_passage') or '',
+            'view_count': m.get('view_count') or 0,
+            'melbourne_time': m.get('melbourne_time') or '',
+            'slug': slug,
+            'transcript': m.get('transcript') or '',
+        })
+    # Newest first; rows with no date sink to the bottom
+    out.sort(key=lambda s: s['post_date_gmt'], reverse=True)
+    return out
+
+
+@cli.command("export")
+@click.option("--db", "db_path", default=None, help=f"Path to the SQLite database (default: {db.DEFAULT_DB_PATH}).")
+@click.option("--out-dir", "out_dir", default="sermon-archive", help="Directory for sermons.json and podcast_feed.xml.")
+def export_cmd(db_path, out_dir):
+    """Export the mirror DB to static site assets (sermons.json + podcast_feed.xml)."""
+    if db_path is None:
+        db_path = db.DEFAULT_DB_PATH
+
+    conn = db.connect(db_path)
+    db.init_db(conn)
+    sermons = _site_json(db.get_sermons_with_transcripts(conn))
+
+    os.makedirs(out_dir, exist_ok=True)
+    json_path = os.path.join(out_dir, 'sermons.json')
+    with open(json_path, 'w', encoding='utf-8') as f:
+        json.dump(sermons, f, ensure_ascii=False)
+    click.echo(f"Exported {len(sermons)} sermons to {json_path}")
+
+    rss_path = os.path.join(out_dir, 'podcast_feed.xml')
+    _write_rss_feed(sermons, rss_path)
+    click.echo(f"Exported RSS feed to {rss_path}")
+
+
+def _write_rss_feed(sermons, rss_path):
+    """Generate a podcast-compliant RSS feed from exported sermon dicts."""
+    import html as html_mod
+    from datetime import datetime, timezone
+
+    current_year = datetime.now().year
+    build_date = datetime.now(timezone.utc).strftime('%a, %d %b %Y %H:%M:%S %z')
+
+    rss_feed = f'''<?xml version="1.0" encoding="UTF-8"?>
+<rss version="2.0" xmlns:content="http://purl.org/rss/1.0/modules/content/" xmlns:wfw="http://wellformedweb.org/CommentAPI/" xmlns:dc="http://purl.org/dc/elements/1.1/" xmlns:atom="http://www.w3.org/2005/Atom" xmlns:sy="http://purl.org/rss/1.0/modules/syndication/" xmlns:slash="http://purl.org/rss/1.0/modules/slash/" xmlns:itunes="http://www.itunes.com/dtds/podcast-1.0.dtd">
+<channel>
+    <title>St Alfred's Anglican Church Sermons</title>
+    <link>https://stalfreds.org/sermons/</link>
+    <description>Sermons from St Alfred's Anglican Church, Blackburn North.</description>
+    <language>en-au</language>
+    <copyright>Copyright {current_year} St Alfred's Anglican Church</copyright>
+    <lastBuildDate>{build_date}</lastBuildDate>
+    <itunes:author>St Alfred's Anglican Church</itunes:author>
+    <itunes:subtitle>Weekly sermons from St Alfred's Anglican Church</itunes:subtitle>
+    <itunes:summary>Sermons from St Alfred's Anglican Church, Blackburn North.</itunes:summary>
+    <itunes:explicit>false</itunes:explicit>
+    <itunes:type>episodic</itunes:type>
+    <itunes:owner>
+        <itunes:name>St Alfred's Anglican Church</itunes:name>
+        <itunes:email>info@stalfreds.org</itunes:email>
+    </itunes:owner>
+    <itunes:category text="Religion &amp; Spirituality"/>
+</channel>
+'''
+
+    items = []
+    for s in sermons:
+        if s.get('status') != 'publish':
+            continue
+        title = html_mod.escape(s.get('title') or 'No Title')
+        permalink = s.get('permalink') or '#'
+        audio_url = s.get('audio_url') or ''
+        preacher = html_mod.escape(s.get('preacher') or 'N/A')
+        sermon_series = html_mod.escape(s.get('sermon_series') or 'N/A')
+        bible_passage = html_mod.escape(s.get('bible_passage') or 'N/A')
+        content_text = html_mod.escape(s.get('content_text') or '')
+
+        pub_date = ""
+        pdt = s.get('post_date_gmt')
+        if pdt:
+            try:
+                dt_object = datetime.strptime(pdt, '%Y-%m-%d %H:%M:%S').replace(tzinfo=timezone.utc)
+                pub_date = dt_object.strftime('%a, %d %b %Y %H:%M:%S %z')
+            except ValueError:
+                pass
+
+        description = (
+            f"In this sermon, {preacher} speaks on the theme of {title} as part of the "
+            f"series {sermon_series}. The Bible reading is {bible_passage}. {content_text}".strip()
+        )
+
+        enclosure = ""
+        if audio_url:
+            audio_type = "audio/x-m4a" if '.m4a' in audio_url.lower() else "audio/mpeg"
+            enclosure = f'<enclosure url="{html_mod.escape(audio_url)}" type="{audio_type}" length="{s.get("audio_file_size") or 0}" />'
+
+        items.append(f'''    <item>
+        <title>{title}</title>
+        <link>{permalink}</link>
+        <pubDate>{pub_date}</pubDate>
+        <guid>{permalink}</guid>
+        {enclosure}
+        <description><![CDATA[{description}]]></description>
+        <itunes:author>{preacher}</itunes:author>
+        <itunes:subtitle>{sermon_series} | {preacher} | {bible_passage}</itunes:subtitle>
+        <itunes:summary><![CDATA[{description}]]></itunes:summary>
+        <itunes:explicit>false</itunes:explicit>
+    </item>''')
+
+    rss_feed += "\n".join(items)
+    rss_feed += "\n</channel>\n</rss>\n"
+
+    with open(rss_path, 'w', encoding='utf-8') as f:
+        f.write(rss_feed)
+
+
 # --- Phase 4: Gap Analysis ---
 
 @cli.command("gap-report")
@@ -656,6 +876,39 @@ def mirror_audio_cmd(from_index, output_dir, dry_run, resume):
     """Batch download all audio files from an index."""
     from audio_mirror import mirror_audio
     mirror_audio(from_index, output_dir, dry_run=dry_run, resume=resume, _echo=click.echo)
+
+
+@cli.command("mirror-audio-db")
+@click.option("--db", "db_path", default=None, help=f"Path to the SQLite database (default: {db.DEFAULT_DB_PATH}).")
+@click.option("--rclone-remote", default="hyperion:/D:/stalfreds_audio", help="rclone remote directory to stream audio into.")
+@click.option("--dry-run", is_flag=True, help="Show what would be streamed without transferring.")
+def mirror_audio_db_cmd(db_path, rclone_remote, dry_run):
+    """Stream pending sermon audio into an rclone remote (no local disk usage)."""
+    if db_path is None:
+        db_path = db.DEFAULT_DB_PATH
+
+    conn = db.connect(db_path)
+    db.init_db(conn)
+
+    from audio_mirror import mirror_audio_db
+    mirror_audio_db(conn, rclone_remote=rclone_remote, dry_run=dry_run, _echo=click.echo)
+
+
+@cli.command("transcribe")
+@click.option("--db", "db_path", default=None, help=f"Path to the SQLite database (default: {db.DEFAULT_DB_PATH}).")
+@click.option("--model", default="medium", help="faster-whisper model name (default: medium).")
+@click.option("--limit", type=int, default=None, help="Transcribe at most N pending sermons.")
+@click.option("--title", "title_filter", default=None, help="Transcribe only the pending sermon with this exact title.")
+def transcribe_cmd(db_path, model, limit, title_filter):
+    """Transcribe sermons lacking a transcript and store them in the DB."""
+    if db_path is None:
+        db_path = db.DEFAULT_DB_PATH
+
+    conn = db.connect(db_path)
+    db.init_db(conn)
+
+    from transcriber import transcribe_missing
+    transcribe_missing(conn, model_name=model, limit=limit, title_filter=title_filter, _echo=click.echo)
 
 
 if __name__ == '__main__':

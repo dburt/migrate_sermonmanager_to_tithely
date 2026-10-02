@@ -89,6 +89,9 @@ def run_remote_transcribe(conn, limit=None, batch_size=10, model="medium", echo=
         })
     echo(f"{len(jobs)} jobs queued (model={model}, audio from {AUDIO_DIR})")
 
+    from monitor import save_drain_baseline
+    save_drain_baseline(conn)
+
     with tempfile.TemporaryDirectory() as tmp:
         local_tmp = Path(tmp)
         meta_path = local_tmp / "meta.json"

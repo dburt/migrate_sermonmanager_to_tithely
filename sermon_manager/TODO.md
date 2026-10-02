@@ -12,11 +12,13 @@ This document outlines the current tasks and future plans for the `sermon_manage
 -   **Local CSV Querying:** `list-local` command can now retrieve a single sermon from `sermons.csv` by `audio_file_size`.
 -   **Audio File Size Caching:** `list-local` caches calculated audio file sizes to `sermons_with_sizes.csv` for faster subsequent access.
 -   **`compare` command:** Basic implementation done.
--   **`update-title` command:** Implemented, but currently blocked by `TithelyManager` instantiation issues.
+-   **`update-title` command:** Implemented and working.
+-   **Single-field updates:** `update-speaker`, `update-series`, `update-bible-passage`, `update-description` all implemented (shared `_single_field_update` helper).
+-   **`search` command:** Implemented — FTS over local DB (title, speaker, series, bible passage, topics, description, transcript), ranked JSON to stdout.
 
 ## Blocking Issue: `TithelyManager` Instantiation
 
-The primary blocking issue is a recurring `TithelyManager() takes no arguments.` or `AttributeError: 'TithelyManager' object has no attribute 'get_sermon_by_audio_file_size'` error. This indicates a fundamental problem with how `TithelyManager` is being instantiated or how its methods are being accessed across different commands. This needs a systematic review and correction.
+**Resolved.** All commands that reach Tithely instantiate `TithelyManager(email, password, headless=headless, _echo=_echo)` correctly (see `update-title` and the single-field update helpers). The `search`, `export`, and local DB commands do not require Tithely at all.
 
 ## Key Principles of the System
 
@@ -29,10 +31,7 @@ Our goal is to build a simple, flexible, and efficient CLI toolset with short, q
 
 ## Next Steps (Prioritized)
 
-1.  **Systematic Review and Fix of `TithelyManager` Instantiation:** Go through `sermon_manager.py` and `core.py` to ensure `TithelyManager` is always instantiated correctly with all required arguments (`email`, `password`, `headless`, `_echo`) and that its methods are called properly.
-2.  **Implement Single-Field Updates (Remaining):** Add `update-speaker`, `update-series`, `update-bible-passage`, `update-description` commands, following the pattern of `update-title` once the blocking issue is resolved.
-3.  **Refine `compare` command:** Improve the diffing output and handle cases where fields might be missing in one of the sermon objects.
-4.  **Implement `search` command:** Develop a command to search local sermon data (e.g., by keywords in title, description, speaker, series).
+1.  **Refine `compare` command:** Improve the diffing output and handle cases where fields might be missing in one of the sermon objects.
 
 ## Available Tools (`sermon_manager/sermon_manager.py`)
 

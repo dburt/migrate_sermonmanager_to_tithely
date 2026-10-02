@@ -12,6 +12,15 @@ from utils import handle_output
 import core
 import db
 
+def _fts_query(query):
+    """Build a safe FTS5 MATCH expression from free text (prefix AND terms)."""
+    tokens = []
+    for word in str(query).split():
+        clean = ''.join(ch for ch in word if ch.isalnum())
+        if clean:
+            tokens.append(f'"{clean}"*')
+    return ' AND '.join(tokens)
+
 @click.group()
 def cli():
     """A CLI for managing sermons on Tithely."""
@@ -105,6 +114,44 @@ def list_local(limit, audio_file_size, output):
 
     except FileNotFoundError:
         click.echo("Error: sermons.csv not found.")
+
+@cli.command("search")
+@click.argument("query")
+@click.option("--limit", default=20, type=int, help="Max number of results to return (default: 20).")
+@click.option("--output", default=None, help="The output file to save the results to (JSON), or 'stdout'.")
+@click.option("--db", "db_path", default=None, help=f"Path to the SQLite database (default: {db.DEFAULT_DB_PATH}).")
+def search_cmd(query, limit, output, db_path):
+    """Full-text search local sermon data, including transcript contents.
+
+    Searches title, speaker, series, bible passage, topics, description and
+    transcript text. Prints ranked matches as JSON to stdout (or --output).
+    """
+    if db_path is None:
+        db_path = db.DEFAULT_DB_PATH
+    conn = db.connect(db_path)
+    db.init_db(conn)
+    fts = _fts_query(query)
+    if not fts:
+        click.echo("Error: query must contain at least one alphanumeric word.", err=True)
+        return
+    try:
+        rows = db.search_fts(conn, fts, limit=limit)
+    except Exception as e:
+        click.echo(f"Error: search failed - {e}.", err=True)
+        return
+    results = [
+        {
+            "slug": m.get("slug"),
+            "sermon_key": db._sermon_key(m),
+            "title": m.get("title"),
+            "speaker": m.get("speaker") or m.get("preacher") or "",
+            "date": m.get("date") or "",
+            "series": m.get("sermon_series") or "",
+            "bible_passage": m.get("bible_passage") or "",
+        }
+        for m in rows
+    ]
+    handle_output({"query": query, "count": len(results), "results": results}, output or "stdout")
 
 @cli.command("get-remote")
 @click.argument("slug")
@@ -203,6 +250,73 @@ def update_title(audio_file_size, new_title, page, headless):
 
     except Exception as e:
         _echo(f"An error occurred: {e}.", err=True)
+
+def _single_field_update(audio_file_size, field, value, page, headless, label):
+    """Shared implementation for the single-field update commands."""
+    _echo = click.echo
+    _echo(f"Updating {label} for sermon with audio file size: {audio_file_size} to '{value}'...")
+
+    email = os.getenv("TITHELY_EMAIL")
+    password = os.getenv("TITHELY_PASSWORD")
+
+    if not email or not password:
+        _echo("Error: TITHELY_EMAIL and TITHELY_PASSWORD must be set in your .env file.", err=True)
+        return 1
+
+    try:
+        from core import TithelyManager
+        with TithelyManager(email, password, headless=headless, _echo=_echo) as manager:
+            manager.login()
+            sermon_data = manager.get_sermon_by_audio_file_size(audio_file_size, page_number=page)
+
+            if sermon_data:
+                sermon_data[field] = value
+                manager.update_sermon(audio_file_size, sermon_data, page_number=page)
+                _echo(f"Sermon {label} updated successfully!")
+                return 0
+            else:
+                _echo(f"Sermon with audio file size {audio_file_size} not found.", err=True)
+                return 1
+
+    except Exception as e:
+        _echo(f"An error occurred: {e}.", err=True)
+        return 1
+
+@cli.command("update-speaker")
+@click.argument("audio_file_size")
+@click.argument("new_speaker")
+@click.option("--page", default=1, help="The page number the sermon is on.")
+@click.option('--headless', is_flag=True, help='Run the browser in headless mode.')
+def update_speaker(audio_file_size, new_speaker, page, headless):
+    """Update the speaker of a sermon on Tithely."""
+    _single_field_update(audio_file_size, 'preacher', new_speaker, page, headless, "speaker")
+
+@cli.command("update-series")
+@click.argument("audio_file_size")
+@click.argument("new_series")
+@click.option("--page", default=1, help="The page number the sermon is on.")
+@click.option('--headless', is_flag=True, help='Run the browser in headless mode.')
+def update_series(audio_file_size, new_series, page, headless):
+    """Update the series of a sermon on Tithely."""
+    _single_field_update(audio_file_size, 'sermon_series', new_series, page, headless, "series")
+
+@cli.command("update-bible-passage")
+@click.argument("audio_file_size")
+@click.argument("new_bible_passage")
+@click.option("--page", default=1, help="The page number the sermon is on.")
+@click.option('--headless', is_flag=True, help='Run the browser in headless mode.')
+def update_bible_passage(audio_file_size, new_bible_passage, page, headless):
+    """Update the bible passage of a sermon on Tithely."""
+    _single_field_update(audio_file_size, 'bible_passage', new_bible_passage, page, headless, "bible passage")
+
+@cli.command("update-description")
+@click.argument("audio_file_size")
+@click.argument("new_description")
+@click.option("--page", default=1, help="The page number the sermon is on.")
+@click.option('--headless', is_flag=True, help='Run the browser in headless mode.')
+def update_description(audio_file_size, new_description, page, headless):
+    """Update the description of a sermon on Tithely."""
+    _single_field_update(audio_file_size, 'description', new_description, page, headless, "description")
 
 @cli.command("compare")
 @click.option("--local-file", "local_file", default=None, help="Path to the local sermon data JSON file.")
@@ -559,6 +673,10 @@ def export_cmd(db_path, out_dir):
     _write_rss_feed(site, rss_path)
     click.echo(f"Exported RSS feed to {rss_path}")
     click.echo(f"Exported {written} transcripts to {os.path.join(out_dir, 'transcripts')}")
+
+    search_path = os.path.join(out_dir, 'search.db')
+    n = db.build_search_db(conn, search_path)
+    click.echo(f"Exported FTS search DB ({n} rows) to {search_path}")
 
 
 def _write_transcript_files(sermons, out_dir):
@@ -973,31 +1091,32 @@ def status_cmd(db_path, watch, as_json):
     """Show transcription progress and estimated completion time."""
     import time as _time
     import json as _json
-    import os as _os
-    from monitor import status_report, _save_baseline, _drain_pid, _process_start, \
-        _remote_done_count, BASELINE_PATH
+    from monitor import status_report, _save_baseline, _load_baseline, _drain_pid, \
+        _process_start, _remote_done_count
 
     if db_path is None:
         db_path = db.DEFAULT_DB_PATH
 
     _echo = None if as_json else click.echo
 
-    first = True
     while True:
         conn = db.connect(db_path)
         db.init_db(conn)
-        if first and not _os.path.exists(BASELINE_PATH):
-            pid = _drain_pid()
-            if pid and _process_start(pid):
-                _save_baseline(pid, _process_start(pid), _remote_done_count(),
-                               conn.execute("SELECT COUNT(*) c FROM transcriptions").fetchone()["c"])
+        pid = _drain_pid()
+        base = _load_baseline()
+        if pid and (not base or base.get("pid") != pid):
+            start = _process_start(pid)
+            if start:
+                _save_baseline(
+                    pid, start, _remote_done_count(),
+                    conn.execute("SELECT COUNT(*) c FROM transcriptions").fetchone()["c"],
+                )
         report = status_report(conn, _echo=_echo)
         if as_json:
             click.echo(_json.dumps(report))
         conn.close()
         if not watch:
             break
-        first = False
         _time.sleep(watch)
 
 

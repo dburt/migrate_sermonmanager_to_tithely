@@ -440,12 +440,16 @@ def add_transcription(conn, transcript_text, tithely_sermon_id=None, wordpress_s
 
 
 def get_pending_transcriptions(conn):
-    """Sermons (merged) that have an audio source but no transcription yet."""
+    """Sermons (merged) that have an audio source but no transcription yet.
+
+    Uses NOT EXISTS so tithely-only rows (wordpress_sermon_id NULL) are not
+    silently dropped by a NULL `NOT IN` comparison.
+    """
     rows = conn.execute("""
         SELECT v.* FROM v_sermons v
         WHERE v.audio_url != ''
-          AND v.tithely_sermon_id NOT IN (SELECT tithely_sermon_id FROM transcriptions WHERE tithely_sermon_id IS NOT NULL)
-          AND v.wordpress_sermon_id NOT IN (SELECT wordpress_sermon_id FROM transcriptions WHERE wordpress_sermon_id IS NOT NULL)
+          AND NOT EXISTS (SELECT 1 FROM transcriptions x WHERE x.tithely_sermon_id = v.tithely_sermon_id)
+          AND NOT EXISTS (SELECT 1 FROM transcriptions x WHERE x.wordpress_sermon_id = v.wordpress_sermon_id)
         ORDER BY v.post_date_gmt DESC
     """).fetchall()
     return [dict(r) for r in rows]
@@ -455,9 +459,12 @@ def get_pending_transcriptions(conn):
 
 def get_pending_audio(conn):
     """Merged sermons with an audio URL but no local_audio_path yet."""
+
+    # NOTE: the view emits the raw (possibly NULL) local_audio_path for
+    # tithely-only rows, so compare with COALESCE, not `= ''`.
     rows = conn.execute("""
         SELECT * FROM v_sermons
-        WHERE audio_url != '' AND local_audio_path = ''
+        WHERE audio_url != '' AND COALESCE(local_audio_path, '') = ''
         ORDER BY post_date_gmt DESC
     """).fetchall()
     return [dict(r) for r in rows]
@@ -623,6 +630,42 @@ def refresh_fts(conn):
         rows,
     )
     conn.commit()
+    return len(rows)
+
+
+def build_search_db(conn, search_path):
+    """Create a standalone read-only FTS database for server-side transcript search.
+
+    Mirrors sermons_fts but also stores each sermon's `slug`, so the PHP search
+    endpoint can return results the static page can join against sermons.json.
+    """
+    import sqlite3
+    import os as _os
+
+    if _os.path.exists(search_path):
+        _os.remove(search_path)
+    dest = sqlite3.connect(search_path)
+    dest.execute(
+        "CREATE VIRTUAL TABLE sermons_fts USING fts5("
+        "title, speaker, sermon_series, bible_passage, topics, description, "
+        "content_text, transcript_text, sermon_key UNINDEXED, slug UNINDEXED)"
+    )
+    rows = []
+    for m in get_sermons_with_transcripts(conn):
+        rows.append((
+            m.get('title') or '', m.get('speaker') or '',
+            m.get('sermon_series') or '', m.get('bible_passage') or '',
+            m.get('sermon_topics') or m.get('topics') or '',
+            m.get('description') or '', m.get('content_text') or '',
+            m.get('transcript') or '', _sermon_key(m), m.get('slug') or '',
+        ))
+    dest.executemany(
+        "INSERT INTO sermons_fts (title, speaker, sermon_series, bible_passage, topics, "
+        "description, content_text, transcript_text, sermon_key, slug) "
+        "VALUES (?,?,?,?,?,?,?,?,?,?)", rows)
+    dest.commit()
+    dest.execute("INSERT INTO sermons_fts(sermons_fts) VALUES('optimize')")
+    dest.close()
     return len(rows)
 
 

@@ -25,6 +25,7 @@ __pycache__
 
 # Sermon mirror (generated)
 sermons.db
+search.db
 logs/
 
 # Environment variables

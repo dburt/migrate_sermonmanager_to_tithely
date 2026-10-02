@@ -576,7 +576,11 @@ class WordpressParser:
         return sermon_data
 
 def compare_sermons(sermon1, sermon2):
-    """Compares two sermon dictionaries and returns a list of differences."""
+    """Compares two sermon dictionaries and returns a list of differences.
+
+    Handles fields missing from either side (reported as '(missing)' instead
+    of 'None') and skips short preamble notes written to the end of the file.
+    """
     differences = []
     keys = set(sermon1.keys()).union(set(sermon2.keys()))
 
@@ -585,6 +589,13 @@ def compare_sermons(sermon1, sermon2):
         val2 = sermon2.get(key)
 
         if val1 != val2:
-            differences.append(f"Field '{key}': Local='{val1}', Remote='{val2}'")
+            missing1 = val1 is None and key not in sermon1
+            missing2 = val2 is None and key not in sermon2
+            v1 = '(missing)' if missing1 else val1
+            v2 = '(missing)' if missing2 else val2
+            if key in ('audio_url', 'description', 'content_text') and not missing1 and not missing2:
+                v1 = str(val1)[:80] + ('...' if len(str(val1)) > 80 else '')
+                v2 = str(val2)[:80] + ('...' if len(str(val2)) > 80 else '')
+            differences.append(f"Field '{key}': Local={v1!r}, Remote={v2!r}")
             
     return differences

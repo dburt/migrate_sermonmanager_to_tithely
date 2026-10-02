@@ -202,6 +202,9 @@
         let currentPage = 1;
         const sermonsPerPage = 12;
         let searchTerm = '';
+        let serverHits = new Set();
+        let serverSeq = 0;
+        let searchTimer = null;
 
         let activeFilters = {
             sermon_series: new Set(),
@@ -222,6 +225,8 @@
         clearFilterBtn.addEventListener('click', () => {
             Object.keys(activeFilters).forEach(key => activeFilters[key].clear());
             searchTerm = '';
+            serverHits = new Set();
+            serverSeq++;
             applyAllFilters();
         });
 
@@ -250,6 +255,18 @@
                     
                     return searchWords.every(word => searchableContent.includes(word));
                 });
+            } else {
+                serverHits = new Set();
+            }
+
+            // Merge in server-side transcript matches (search.php FTS)
+            if (serverHits.size > 0) {
+                const bySlug = new Map(allSermons.map(s => [s.slug, s]));
+                const have = new Set(filteredSermons.map(s => s.slug));
+                serverHits.forEach(slug => {
+                    const rec = bySlug.get(slug);
+                    if (rec && !have.has(slug)) filteredSermons.push(rec);
+                });
             }
 
             currentSermons = filteredSermons;
@@ -258,6 +275,26 @@
             setupFilters(currentSermons);
             displaySermons();
             displayActiveFilters();
+        }
+
+        async function fetchServerSearch(term) {
+            const seq = ++serverSeq;
+            if (!term.trim()) {
+                serverHits = new Set();
+                return;
+            }
+            try {
+                const res = await fetch('search.php?q=' + encodeURIComponent(term));
+                if (seq !== serverSeq) return; // stale response
+                if (!res.ok) throw new Error('search unavailable');
+                const data = await res.json();
+                if (seq !== serverSeq) return;
+                const hits = data.results || [];
+                serverHits = new Set(hits.map(h => h.slug).filter(Boolean));
+                if (searchTerm.trim() !== '') applyAllFilters();
+            } catch (e) {
+                console.error('Server search failed:', e);
+            }
         }
 
         function toggleFilter(key, value) {
@@ -285,7 +322,10 @@
                 `;
                 document.getElementById('text-filter-input').addEventListener('input', (e) => {
                     searchTerm = e.target.value;
+                    serverHits = new Set();
                     applyAllFilters();
+                    clearTimeout(searchTimer);
+                    searchTimer = setTimeout(() => fetchServerSearch(searchTerm), 300);
                 });
                 document.querySelectorAll('.accordion-toggle').forEach(toggle => {
                     toggle.addEventListener('click', (e) => {

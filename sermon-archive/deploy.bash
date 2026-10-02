@@ -10,6 +10,8 @@ rsync --verbose --copy-links \
     sermon-archive/stalfreds-sermons.html \
     sermon-archive/sermons.json \
     sermon-archive/podcast_feed.xml \
+    sermon-archive/search.php \
+    sermon-archive/search.db \
     illuminu@burt.id.au:dave.burt.id.au/
 
 rsync --verbose --copy-links -r \

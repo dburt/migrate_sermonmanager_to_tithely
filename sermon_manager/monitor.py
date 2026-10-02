@@ -91,6 +91,17 @@ def _save_baseline(pid, started_at, remote_count, db_count):
         }, f)
 
 
+def save_drain_baseline(conn):
+    """Anchor progress to the very start of the current transcribe-remote run.
+
+    Called by run_remote_transcribe once it has queued its jobs, so status
+    correctlty measures growth (remote .txt delta) against this run instead of
+    the previous run's leftover baseline.
+    """
+    db_count = conn.execute("SELECT COUNT(*) c FROM transcriptions").fetchone()["c"]
+    _save_baseline(os.getpid(), datetime.now().astimezone(), _remote_done_count(), db_count)
+
+
 def status_report(conn, baseline=None, _echo=None):
     _echo = _echo or (lambda s: None)
     now = datetime.now(timezone.utc)
@@ -110,6 +121,10 @@ def status_report(conn, baseline=None, _echo=None):
         except ValueError:
             elapsed = None
 
+    done_in_run = max(0, remote_done - int(base.get("remote_baseline", 0)))
+    visible_done = min(done_in_run, job_total)
+    jobs_remaining = job_total - visible_done
+
     result = {
         "pid": pid,
         "elapsed_s": elapsed,
@@ -117,23 +132,22 @@ def status_report(conn, baseline=None, _echo=None):
         "pending_db": pend,
         "remote_done": remote_done,
         "job_total": job_total,
-        "jobs_remaining": max(0, job_total - remote_done),
+        "done_in_run": done_in_run,
+        "visible_done": visible_done,
+        "jobs_remaining": jobs_remaining,
         "rate_h": None,
         "eta_seconds": None,
         "finish_at": None,
     }
 
-    if elapsed is not None:
-        done_in_run = remote_done - int(base.get("remote_baseline", 0))
-        done_in_run = max(0, done_in_run)
-        if elapsed > 0 and done_in_run > 0:
-            rate = done_in_run / elapsed  # transcripts per second
-            result["rate_h"] = round(rate * 3600, 2)
-            remaining = result["jobs_remaining"]
-            if remaining > 0:
-                eta = remaining / rate
-                result["eta_seconds"] = int(eta)
-                result["finish_at"] = (now + timedelta(seconds=eta)).isoformat(timespec="minutes")
+    if elapsed is not None and visible_done > 0:
+        rate = visible_done / elapsed  # transcripts per second
+        result["rate_h"] = round(rate * 3600, 2)
+        remaining = result["jobs_remaining"]
+        if remaining > 0:
+            eta = remaining / rate
+            result["eta_seconds"] = int(eta)
+            result["finish_at"] = (now + timedelta(seconds=eta)).isoformat(timespec="minutes")
 
     if elapsed is not None:
         elapsed_str = "%dh%dm" % (elapsed // 3600, (elapsed % 3600) // 60)
@@ -146,7 +160,7 @@ def status_report(conn, baseline=None, _echo=None):
     _echo(f"  transcripts in DB: {result['transcripts_db']} / {total_db} total sermons")
     _echo(f"  pending overall: {result['pending_db']}")
     _echo(
-        f"  this run: {result['remote_done']}/{result['job_total']} done, "
+        f"  this run: {result['visible_done']}/{result['job_total']} done, "
         f"{result['jobs_remaining']} remaining"
     )
     if result["finish_at"]:

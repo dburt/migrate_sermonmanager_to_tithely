@@ -36,7 +36,9 @@ The new toolset is located in the `sermon_manager/` directory. Each tool is a st
 
 ## Design System & Archive Frontend
 
-The sermon archive web page (`sermon-archive/stalfreds-sermons.html`) is the public face of this project. It is **hand-maintained**: `sermon_manager.py export` regenerates only `sermons.json`, `podcast_feed.xml`, `transcripts/`, and `search.db` — it does **not** touch the HTML. Edit the HTML directly.
+The sermon archive web page (`sermon-archive/stalfreds-sermons.html`) is the public face of this project. It is **hand-maintained**: `sermon_manager.py export` regenerates only `sermons.json`, `manifest.json`, `podcast_feed.xml`, `transcripts/`, and `search.db` — it does **not** touch the HTML. Edit the HTML directly.
+
+Data assets are content-addressed: `export` writes `manifest.json` with a `sermons` and `transcripts` thumbprint (content hash), and the page fetches `sermons.json` and `transcripts/<slug>.json` with `?v=<thumbprint>`. This busts Apache's 2-day `mod_expires` cache while keeping each version cacheable. `search.php` sends `Cache-Control: no-store` itself.
 
 ### Source of Truth
 

@@ -1,7 +1,10 @@
 #!/usr/bin/env -S uv run --script
 
 import os
+import re
 import json
+import hashlib
+import datetime
 import click
 from dotenv import load_dotenv
 
@@ -661,13 +664,22 @@ def export_cmd(db_path, out_dir):
     sermons = db.get_sermons_with_transcripts(conn)
 
     os.makedirs(out_dir, exist_ok=True)
-    written = _write_transcript_files(sermons, out_dir)
+    written, transcripts_thumb = _write_transcript_files(sermons, out_dir)
 
     site = _site_json(sermons)
     json_path = os.path.join(out_dir, 'sermons.json')
     with open(json_path, 'w', encoding='utf-8') as f:
         json.dump(site, f, ensure_ascii=False)
     click.echo(f"Exported {len(site)} sermons to {json_path}")
+
+    manifest_path = os.path.join(out_dir, 'manifest.json')
+    with open(manifest_path, 'w', encoding='utf-8') as f:
+        json.dump({
+            'sermons': _file_thumbprint(json_path),
+            'transcripts': transcripts_thumb,
+            'generated': datetime.datetime.now(datetime.timezone.utc).isoformat(),
+        }, f, ensure_ascii=False)
+    click.echo(f"Exported cache manifest to {manifest_path}")
 
     rss_path = os.path.join(out_dir, 'podcast_feed.xml')
     _write_rss_feed(site, rss_path)
@@ -679,16 +691,41 @@ def export_cmd(db_path, out_dir):
     click.echo(f"Exported FTS search DB ({n} rows) to {search_path}")
 
 
-def _write_transcript_files(sermons, out_dir):
-    """Write one transcripts/<slug>.json per sermon that has a transcript."""
-    import re
+def _reflow_transcript(text):
+    """Join hard-wrapped lines into flowing prose.
 
+    Whisper output is stored as one segment per line; rendered with
+    ``white-space: pre-wrap`` those become mid-sentence breaks. Collapse every
+    run of whitespace within a paragraph to a single space, keeping only genuine
+    blank-line paragraph breaks.
+    """
+    text = (text or '').replace('\r\n', '\n').replace('\r', '\n')
+    paragraphs = re.split(r'\n\s*\n', text)
+    return '\n\n'.join(' '.join(p.split()) for p in paragraphs if p.strip())
+
+
+def _file_thumbprint(path, chunk_size=1 << 20):
+    """Return a short content hash used for cache-busting query strings."""
+    h = hashlib.sha256()
+    with open(path, 'rb') as f:
+        for chunk in iter(lambda: f.read(chunk_size), b''):
+            h.update(chunk)
+    return h.hexdigest()[:16]
+
+
+def _write_transcript_files(sermons, out_dir):
+    """Write one transcripts/<slug>.json per sermon that has a transcript.
+
+    Returns ``(written, thumbprint)`` where thumbprint is a content hash over
+    all written transcripts, used to cache-bust on-demand transcript fetches.
+    """
     transcripts_dir = os.path.join(out_dir, 'transcripts')
     os.makedirs(transcripts_dir, exist_ok=True)
     current = set()
     written = 0
+    thumbprint = hashlib.sha256()
     for m in sermons:
-        text = (m.get('transcript') or '').strip()
+        text = _reflow_transcript(m.get('transcript') or '')
         slug = m.get('slug') or ''
         if not text or not slug:
             continue
@@ -701,11 +738,14 @@ def _write_transcript_files(sermons, out_dir):
         }
         with open(os.path.join(transcripts_dir, f"{slug}.json"), 'w', encoding='utf-8') as f:
             json.dump(payload, f, ensure_ascii=False)
+        thumbprint.update(slug.encode('utf-8'))
+        thumbprint.update(b'\0')
+        thumbprint.update(text.encode('utf-8'))
         written += 1
     for stale in os.listdir(transcripts_dir):
         if stale.endswith('.json') and stale[:-5] not in current:
             os.remove(os.path.join(transcripts_dir, stale))
-    return written
+    return written, thumbprint.hexdigest()[:16]
 
 
 def _write_rss_feed(sermons, rss_path):

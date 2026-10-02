@@ -10,6 +10,8 @@
  */
 
 header('Content-Type: application/json; charset=utf-8');
+// Search results are dynamic; never let Apache's default expiry cache them.
+header('Cache-Control: no-store, max-age=0');
 
 $q = isset($_GET['q']) ? trim((string) $_GET['q']) : '';
 $limit = isset($_GET['limit']) ? max(1, min(200, (int) $_GET['limit'])) : 60;

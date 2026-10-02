@@ -71,7 +71,7 @@ def main():
                 audio, beam_size=5, language="en",
                 initial_prompt=prompt if prompt else None,
             )
-            text = "\n".join(s.text.strip() for s in segs).strip()
+            text = " ".join(s.text.strip() for s in segs).strip()
             out.write_text(text, encoding="utf-8")
             print(f"  done ({len(text.split())} words)")
             sys.stdout.flush()

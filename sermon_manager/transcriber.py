@@ -81,7 +81,7 @@ def transcribe_missing(conn, model_name='medium', device='cpu', compute_type='in
                 segments, _ = model.transcribe(
                     tmp_path, beam_size=5, language=language, initial_prompt=_initial_prompt(s)
                 )
-                text = "\n".join(seg.text.strip() for seg in segments).strip()
+                text = " ".join(seg.text.strip() for seg in segments).strip()
 
                 if s.get('tithely_sermon_id'):
                     add_transcription(conn, text, tithely_sermon_id=s['tithely_sermon_id'])

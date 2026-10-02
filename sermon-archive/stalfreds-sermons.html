@@ -224,14 +224,35 @@
             sermon_topics: new Set()
         };
 
-        fetch('sermons.json')
-            .then(response => response.json())
-            .then(data => {
+        let transcriptVersion = '';
+
+        async function loadSermons() {
+            let sermonsVersion = '';
+            try {
+                const res = await fetch('manifest.json', { cache: 'no-cache' });
+                if (res.ok) {
+                    const manifest = await res.json();
+                    sermonsVersion = manifest.sermons || '';
+                    transcriptVersion = manifest.transcripts || '';
+                }
+            } catch (error) {
+                console.warn('Cache manifest unavailable; loading sermons without cache-busting.', error);
+            }
+            const url = sermonsVersion
+                ? `sermons.json?v=${encodeURIComponent(sermonsVersion)}`
+                : 'sermons.json';
+            try {
+                const response = await fetch(url);
+                const data = await response.json();
                 allSermons = data.map((sermon, index) => ({...sermon, originalIndex: index}));
                 allSermons.sort((a, b) => new Date(b.post_date_gmt) - new Date(a.post_date_gmt));
                 applyAllFilters();
-            })
-            .catch(error => console.error('Error loading sermons.json:', error));
+            } catch (error) {
+                console.error('Error loading sermons.json:', error);
+            }
+        }
+
+        loadSermons();
 
         clearFilterBtn.addEventListener('click', () => {
             Object.keys(activeFilters).forEach(key => activeFilters[key].clear());
@@ -687,7 +708,10 @@
                 if (!transcriptCache[slug]) {
                     btn.textContent = 'Loading...';
                     try {
-                        const res = await fetch(`transcripts/${encodeURIComponent(slug)}.json`);
+                        const url = transcriptVersion
+                            ? `transcripts/${encodeURIComponent(slug)}.json?v=${encodeURIComponent(transcriptVersion)}`
+                            : `transcripts/${encodeURIComponent(slug)}.json`;
+                        const res = await fetch(url);
                         if (!res.ok) throw new Error('no transcript');
                         const data = await res.json();
                         transcriptCache[slug] = data.transcript || '';

@@ -33,3 +33,26 @@ The new toolset is located in the `sermon_manager/` directory. Each tool is a st
 2.  **Implement Single-Field Updates (Remaining):** Add `update-speaker`, `update-series`, `update-bible-passage`, `update-description` commands, following the pattern of `update-title` once the blocking issue is resolved.
 3.  **Refine `compare` command:** Improve the diffing output and handle cases where fields might be missing in one of the sermon objects.
 4.  **Implement `search` command:** Develop a command to search local sermon data (e.g., by keywords in title, description, speaker, series).
+
+## Design System & Archive Frontend
+
+The sermon archive web page (`sermon-archive/stalfreds-sermons.html`) is the public face of this project. It is **hand-maintained**: `sermon_manager.py export` regenerates only `sermons.json`, `podcast_feed.xml`, `transcripts/`, and `search.db` — it does **not** touch the HTML. Edit the HTML directly.
+
+### Source of Truth
+
+-   **`DESIGN.md`** — the normative design system: palette tokens, typography, elevation, components, and named rules (e.g. "The No-Invented-Blue Rule"). Any visual change to the archive must conform to it; update `DESIGN.md` first if the system genuinely changes.
+-   **`PRODUCT.md`** — product truth: who the archive is for and what it must do.
+-   **`.impeccable/design.json`** — machine-readable sidecar (colors, ramps, components) consumed by the Impeccable detector. It is generated/gitignored; keep it in sync with `DESIGN.md` when tokens change.
+
+### Tooling
+
+-   **Impeccable skill** (`impeccable`) is the design linter/reviewer. Load it for any UI work.
+-   Lint the archive page before committing:
+    `npx --no-install impeccable detect --json sermon-archive/stalfreds-sermons.html`
+-   Off-palette hex values (`#007bff`, `#0056b3`, `#dc3545`, `#ccc`, `#ddd`, `#eee`, ad-hoc radii) are defects. Map them to the nearest `DESIGN.md` token. The only expected warnings are `overused-font`/`single-font` for Roboto, which is the pinned church brand font.
+-   The page must keep exactly one `<h1>` and semantic landmarks (`header`, `nav`, `main`).
+
+### Deploy
+
+Run `bash sermon-archive/deploy.bash` to `export` and rsync the archive to the live host (`illuminu@burt.id.au:dave.burt.id.au/`). Verify the deployed result at `https://dave.burt.id.au/stalfreds-sermons.html`.
+

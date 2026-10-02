@@ -1,0 +1,14 @@
+# Cache policy for the St Alfred's sermon archive.
+#
+# The shell (HTML) and its cache manifest must revalidate so a deploy goes live
+# immediately. Apache already serves an ETag, so an unchanged file costs a
+# 304 with no body.
+#
+# The versioned data (sermons.json, transcripts/<slug>.json) is deliberately
+# NOT matched: the page requests it as ?v=<content-hash>, so each version has a
+# unique URL and can stay long-cached/immutable.
+<IfModule mod_headers.c>
+    <FilesMatch "^(stalfreds-sermons\.html|manifest\.json)$">
+        Header set Cache-Control "no-cache, must-revalidate"
+    </FilesMatch>
+</IfModule>

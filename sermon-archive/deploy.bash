@@ -7,6 +7,7 @@ cd "$(dirname "$0")/.."
 uv run python sermon_manager/sermon_manager.py export --out-dir sermon-archive
 
 rsync --verbose --copy-links \
+    sermon-archive/.htaccess \
     sermon-archive/stalfreds-sermons.html \
     sermon-archive/sermons.json \
     sermon-archive/manifest.json \

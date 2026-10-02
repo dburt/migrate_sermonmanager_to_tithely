@@ -15,12 +15,23 @@
         *, *:before, *:after {
           box-sizing: inherit;
         }
+        .visually-hidden {
+          position: absolute;
+          width: 1px;
+          height: 1px;
+          padding: 0;
+          margin: -1px;
+          overflow: hidden;
+          clip: rect(0, 0, 0, 0);
+          white-space: nowrap;
+          border: 0;
+        }
         body { font-family: 'Roboto', sans-serif; margin: 0; background: #f4f4f4; color: #333; }
         .top-links-bar {
             text-align: center;
             padding: 10px;
-            background: #f8f9fa;
-            border-bottom: 1px solid #ddd;
+            background: #f4f4f4;
+            border-bottom: 1px solid #e6e6e6;
         }
         .header {
             min-height: 200px;
@@ -28,60 +39,61 @@
             align-items: center;
             justify-content: center;
             background-color: #333;
+            color: #fff;
             padding: 20px;
             text-align: center;
-            border-bottom: 1px solid #ddd;
+            border-bottom: 1px solid #e6e6e6;
         }
         .header img {
             max-height: 150px;
         }
         .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
-        #filters { display: flex; flex-wrap: wrap; gap: 20px; background: #fff; padding: 20px; border-radius: 5px; margin-bottom: 20px; }
+        #filters { display: flex; flex-wrap: wrap; gap: 20px; background: #fff; padding: 20px; border-radius: 4px; margin-bottom: 20px; }
         .filter-group { flex: 1; min-width: 200px; }
-        .filter-group h4 { margin-top: 0; border-bottom: 2px solid #eee; padding-bottom: 10px; } 
+        .filter-group h3 { margin-top: 0; border-bottom: 2px solid #e6e6e6; padding-bottom: 10px; font-size: 1.1em; } 
         .filter-group ul { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
         #text-filter-input {
             width: 100%;
             padding: 8px;
-            border: 1px solid #ccc;
+            border: 1px solid #e6e6e6;
             border-radius: 4px;
         }
-        .filter-group li a { color: #007bff; text-decoration: none; cursor: pointer; display: block; padding: 5px 0; }
+        .filter-group li a { color: #00506c; text-decoration: none; cursor: pointer; display: block; padding: 5px 0; }
         .filter-group li a:hover { text-decoration: underline; }
         .filter-group li a.active-filter-link { font-weight: bold; }
         #active-filter { text-align: center; margin-bottom: 20px; }
-        #clear-filter-btn { background: #dc3545; color: white; border: none; padding: 10px 15px; border-radius: 5px; cursor: pointer; display: none; }
-        .filter-pill { display: inline-block; padding: 5px 10px; background-color: #e0e0e0; border-radius: 15px; margin: 5px; font-size: 0.9em; }
+        #clear-filter-btn { background: #00506c; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; display: none; }
+        .filter-pill { display: inline-block; padding: 5px 10px; background-color: #f1f1f1; border-radius: 30px; margin: 5px; font-size: 0.9em; }
         .filter-pill-remove { cursor: pointer; font-weight: bold; margin-left: 5px; color: #999; }
         .filter-pill-remove:hover { color: #333; }
-        .sermon-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; }
-        .sermon-item { background: #fff; border: 1px solid #ddd; padding: 15px; cursor: pointer; transition: box-shadow 0.3s; border-radius: 5px; }
+        .sermon-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; list-style: none; padding: 0; margin: 0; }
+        .sermon-item { background: #fff; border: 1px solid #e6e6e6; padding: 15px; cursor: pointer; transition: box-shadow 0.3s; border-radius: 4px; }
         .sermon-item img {
             width: 100%;
             height: auto;
         }
         .sermon-item:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .sermon-item h3 { margin-top: 0; color: #0056b3; font-size: 1.1em; }
+        .sermon-item h3 { margin-top: 0; color: #00506c; font-size: 1.1em; }
         .sermon-item p { font-size: 0.9em; color: #666; margin: 5px 0 0; }
-        .sermon-detail { display: none; background: #fff; padding: 30px; margin-top: 20px; border: 1px solid #ddd; border-radius: 5px; }
+        .sermon-detail { display: none; background: #fff; padding: 30px; margin-top: 20px; border: 1px solid #e6e6e6; border-radius: 4px; }
         .sermon-detail img {
             width: 100%;
             height: auto;
         }
         .sermon-detail.active { display: block; }
         .sermon-detail h2 { margin-top: 0; }
-        .sermon-detail .meta { color: #666; font-size: 0.9em; border-bottom: 1px solid #eee; padding-bottom: 15px; margin-bottom: 15px;}
+        .sermon-detail .meta { color: #666; font-size: 0.9em; border-bottom: 1px solid #e6e6e6; padding-bottom: 15px; margin-bottom: 15px;}
         .sermon-detail .related-sermons { margin-top: 20px; }
-        .back-button { display: inline-block; margin-bottom: 20px; cursor: pointer; color: #007bff; font-weight: bold; }
+        .back-button { display: inline-block; margin-bottom: 20px; cursor: pointer; color: #00506c; font-weight: bold; }
         audio { width: 100%; margin-top: 20px; }
         .transcript-section { margin-top: 20px; }
         .transcript-toggle {
-            background: #0056b3; color: white; border: none; padding: 10px 18px;
+            background: #00506c; color: white; border: none; padding: 10px 18px;
             border-radius: 4px; cursor: pointer; font-size: 0.95em;
         }
-        .transcript-toggle:hover { background: #003d80; }
+        .transcript-toggle:hover { background: #002a39; }
         .transcript-content {
-            background: #f8f9fa; border: 1px solid #ddd; border-radius: 5px;
+            background: #f4f4f4; border: 1px solid #e6e6e6; border-radius: 4px;
             padding: 18px; margin-top: 10px; max-height: 60vh; overflow-y: auto;
             line-height: 1.6; white-space: pre-wrap; font-size: 0.95em;
         }
@@ -94,10 +106,10 @@
             line-height: 1;
         }
         #pagination a {
-            color: #007bff;
+            color: #00506c;
             text-decoration: none;
             transition: background-color .3s;
-            border: 1px solid #ddd;
+            border: 1px solid #e6e6e6;
             cursor: pointer;
         }
         #pagination span {
@@ -105,11 +117,11 @@
             border: 1px solid transparent;
         }
         #pagination a.active {
-            background-color: #007bff;
+            background-color: #0099ce;
             color: white;
-            border: 1px solid #007bff;
+            border: 1px solid #0086b5;
         }
-        #pagination a:hover:not(.active) { background-color: #ddd; }
+        #pagination a:hover:not(.active) { background-color: #e6e6e6; }
 
         /* Custom grid for related sermons */
         .related-sermons .row {
@@ -136,9 +148,9 @@
 
         @media (max-width: 767px) {
             #filters { display: block; padding: 0 10px; overflow-x: hidden; }
-            .filter-group { border-bottom: 1px solid #eee; }
+            .filter-group { border-bottom: 1px solid #e6e6e6; }
             .filter-group:last-child { border-bottom: none; }
-            .filter-group h4 { margin: 0; border-bottom: none; padding-bottom: 0; }
+            .filter-group h3 { margin: 0; border-bottom: none; padding-bottom: 0; }
             #filters .accordion-toggle { display: block; padding: 12px 0; pointer-events: auto; position: relative; }
             #filters .accordion-toggle::after { content: '+'; position: absolute; right: 5px; font-size: 1.5em; line-height: 1; }
             #filters .filter-group.active .accordion-toggle::after { content: '−'; }
@@ -160,31 +172,32 @@
 </head>
 <body>
 
-    <div class="top-links-bar">
+    <nav class="top-links-bar" aria-label="Podcast links">
         <a href="podcast_feed.xml" target="_blank">Podcast Feed</a> |
         <a href="https://podba.se/validate/?url=https://dave.burt.id.au/podcast_feed.xml" target="_blank">Validate Feed</a>
-    </div>
+    </nav>
 
-    <div class="header">
+    <header class="header">
+        <h1 class="visually-hidden">St Alfred's Sermons Archive</h1>
         <img alt="St Alfred's Anglican Church" src="https://dq5pwpg1q8ru0.cloudfront.net/2025/06/11/03/21/50/a7103ade-1605-4c54-94d9-693663b963a2/St_Alfreds_Logo-white.png" />
-    </div>
+    </header>
 
-    <div class="container">
+    <main class="container">
         
-        <div id="filters"></div>
+        <section id="filters" aria-label="Filter sermons"></section>
         <div id="active-filter">
             <span id="current-filter-display"></span>
             <button id="clear-filter-btn">Clear All Filters</button>
             <span id="sermon-count"></span>
         </div>
 
-        <div id="sermon-list-container">
-            <div id="sermon-list" class="sermon-list"></div>
+        <section id="sermon-list-container" aria-label="Sermon list">
+            <ul id="sermon-list" class="sermon-list"></ul>
             <div id="pagination"></div>
-        </div>
+        </section>
         
-        <div id="sermon-detail" class="sermon-detail"></div>
-    </div>
+        <section id="sermon-detail" class="sermon-detail" aria-label="Sermon details"></section>
+    </main>
 
     <script>
         const sermonList = document.getElementById('sermon-list');
@@ -307,16 +320,17 @@
         function setupFilters(sermonsToFilter) {
             if (!filtersContainer.innerHTML) {
                 filtersContainer.innerHTML = `
+                    <h2 class="visually-hidden">Filter sermons</h2>
                     <div class="filter-group">
-                        <h4><a href="#" class="accordion-toggle">Search</a></h4>
+                        <h3><a href="#" class="accordion-toggle">Search</a></h3>
                         <div class="accordion-content">
                             <input type="text" id="text-filter-input" placeholder="Search sermons...">
                         </div>
                     </div>
-                    <div class="filter-group"><h4><a href="#" class="accordion-toggle">Series</a></h4><div class="accordion-content"><ul id="series-filter"></ul></div></div>
-                    <div class="filter-group"><h4><a href="#" class="accordion-toggle">Preacher</a></h4><div class="accordion-content"><ul id="preacher-filter"></ul></div></div>
-                    <div class="filter-group"><h4><a href="#" class="accordion-toggle">Year</a></h4><div class="accordion-content"><ul id="year-filter"></ul></div></div>
-                    <div class="filter-group"><h4><a href="#" class="accordion-toggle">Topic</a></h4><div class="accordion-content"><ul id="topic-filter"></ul></div></div>
+                    <div class="filter-group"><h3><a href="#" class="accordion-toggle">Series</a></h3><div class="accordion-content"><ul id="series-filter"></ul></div></div>
+                    <div class="filter-group"><h3><a href="#" class="accordion-toggle">Preacher</a></h3><div class="accordion-content"><ul id="preacher-filter"></ul></div></div>
+                    <div class="filter-group"><h3><a href="#" class="accordion-toggle">Year</a></h3><div class="accordion-content"><ul id="year-filter"></ul></div></div>
+                    <div class="filter-group"><h3><a href="#" class="accordion-toggle">Topic</a></h3><div class="accordion-content"><ul id="topic-filter"></ul></div></div>
                 `;
                 document.getElementById('text-filter-input').addEventListener('input', (e) => {
                     searchTerm = e.target.value;
@@ -452,7 +466,7 @@
 
             sermonsToDisplay.forEach(sermon => {
                 if (sermon && sermon.title) {
-                    const item = document.createElement('div');
+                    const item = document.createElement('li');
                     item.className = 'sermon-item d-sm-flex';
                     const postDate = new Date(sermon.post_date_gmt + 'Z').toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', dateStyle: 'full', timeStyle: 'short' });
 
@@ -604,8 +618,8 @@
                 preacherImageHtml = `<img alt="${sermon.preacher}" width="40" height="40" class="pull-left mr-2 rounded-circle" loading="lazy" src="${preacherImageUrl}" />`;
             }
 
-            const relatedBySeriesHtml = relatedBySeries.length > 0 ? `<div class="col-md-6"><h4>More from this series:</h4><ul>${relatedBySeries.map(s => `<li><a href="#" onclick="showSermonDetail(${s.originalIndex})">${s.title}</a></li>`).join('')}</ul></div>` : '';
-            const relatedByPreacherHtml = relatedByPreacher.length > 0 ? `<div class="col-md-6"><h4>More by this preacher:</h4><ul>${relatedByPreacher.map(s => `<li><a href="#" onclick="showSermonDetail(${s.originalIndex})">${s.title}</a></li>`).join('')}</ul></div>` : '';
+            const relatedBySeriesHtml = relatedBySeries.length > 0 ? `<div class="col-md-6"><h3>More from this series:</h3><ul>${relatedBySeries.map(s => `<li><a href="#" onclick="showSermonDetail(${s.originalIndex})">${s.title}</a></li>`).join('')}</ul></div>` : '';
+            const relatedByPreacherHtml = relatedByPreacher.length > 0 ? `<div class="col-md-6"><h3>More by this preacher:</h3><ul>${relatedByPreacher.map(s => `<li><a href="#" onclick="showSermonDetail(${s.originalIndex})">${s.title}</a></li>`).join('')}</ul></div>` : '';
 
             sermonDetail.innerHTML = `
                 <div class="back-button" onclick="displaySermons()">&larr; Back to Sermons</div>

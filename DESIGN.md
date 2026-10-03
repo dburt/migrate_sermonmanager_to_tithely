@@ -18,6 +18,7 @@ colors:
   text-strong: "#222222"
   text-muted: "#666666"
   text-muted-on-dark: "#80a8b6"
+  text-subtle-on-dark: "#9dc1d1"
 typography:
   display:
     fontFamily: "Montserrat, sans-serif"
@@ -55,6 +56,12 @@ typography:
     fontWeight: 500
     lineHeight: 1.55
     letterSpacing: "0.2px"
+  caption:
+    fontFamily: "Roboto, sans-serif"
+    fontSize: "12px"
+    fontWeight: 400
+    lineHeight: 1.55
+    letterSpacing: "0"
 rounded:
   xs: "2px"
   sm: "4px"
@@ -122,8 +129,9 @@ should feel like good light and a clear index: calm, unremarkable in the best wa
 and always deferring to the church's own identity and to the recorded voice of the
 sermon itself. The archive presents as "St Alfred's Sermons Archive" for St Alfred's
 Anglican Church and invents no visual or verbal identity of its own — it borrows the
-church's logo, favicon, theme stylesheet, and Montserrat / Roboto pairing wholesale,
-and stays deliberately subordinate while Tithely remains the production site.
+church's logo, favicon, Montserrat / Roboto pairing, and palette wholesale, in its own
+stylesheet, and stays deliberately subordinate while Tithely remains the production
+site.
 
 Density is generous rather than tight. Reading (a transcript, a description) is the
 primary act, so line-height is uniform at 1.55 across every role and type is never
@@ -143,7 +151,7 @@ or focus. The result should read as considered, not decorated.
 - Reading-first, generous 1.55 line-height everywhere.
 - One interactive accent (Harbour Cyan), one structural color (Deep Teal), one rare tertiary (Warm Amber).
 - Flat at rest, lift on interaction.
-- Single static page: filters, a sermon list, and a detail/transcript view.
+- Single static page: a faceted, year-grouped index and a reading view.
 
 ## Colors
 
@@ -177,7 +185,11 @@ and neutral grey.
 - **Strong Charcoal** (`#222222`): the darkest text step.
 - **Muted Charcoal** (`#666666`): secondary and meta text on light surfaces.
 - **Field Border Grey** (`#e6e6e6`): the 1px stroke on inputs and dividers.
-- **Muted on Dark** (`#80a8b6`): muted text placed on a Deep Teal surface.
+- **Muted on Dark** (`#80a8b6`): muted text placed on a Deep Teal surface, for large or
+  non-essential text only.
+- **Subtle on Dark** (`#9dc1d1`): the readable step for body-size text on Deep Teal — the
+  archive subtitle and any small print on the header band. `#80a8b6` fails contrast at
+  15px (3.5:1), so small text on teal uses this step (4.7:1).
 
 ### Named Rules
 **The One Accent Rule.** Harbour Cyan is used on ≤10% of any screen. Its scarcity is
@@ -208,7 +220,13 @@ every long transcript.
   copy on colored surfaces.
 - **Body** (Roboto 400, 15px, 1.55): all running text — descriptions, metadata, and
   transcripts. Keep transcript measure to roughly 65–75ch.
+- **Caption** (Roboto 400, 12px, 1.55): the small print of the index — dates, passage
+  references, counts, timestamps, and other annotation that is read alongside a title,
+  never instead of one. It is the only size below Body.
 - **Label** (Montserrat 500, 15px, 1.55): button labels and small UI labels.
+
+Steps are deliberately few: 12 / 15 / 18 / 24 / 28 / 32–40. Never introduce a size that
+sits between two of them.
 
 ### Named Rules
 **The Uniform 1.55 Rule.** Every type role uses `line-height: 1.55` with
@@ -218,17 +236,34 @@ for a heading or a card.
 **The Reads-In-Roboto Rule.** Anything meant to be read more than a glance is Roboto.
 Montserrat only appears for display headings and button labels.
 
+**The Few-Steps Rule.** Type is set at 12 / 15 / 18 / 24 / 28 / 32–40 and nothing else. A
+new size needs a role in the hierarchy above, not a free hand.
+
 ## Layout
 
-Single static page, no build step. Content is constrained to a centered container —
-the church theme's container is 1160px with 10px gutters; the archive page uses a
-1200px container with 20px side padding and sits on the `#f4f4f4` canvas. The
-composition is one column: a top links bar, a header band with the church logo, a
-filter panel, then the sermon list, with a paginated rhythm below.
+Single static page, no build step, and now no imported theme stylesheet: the archive ships
+its own `stalfreds.css`, built from the tokens above, and loads Montserrat / Roboto from
+Google Fonts exactly as the church site does. Content is constrained to a centered 1200px
+container with 20px side padding, sitting on the `#f4f4f4` canvas.
 
-The church theme's breakpoints are the reference: `320 / 414 / 768 / 991 / 1024 / 1199
-/ 1200`. Below 768px the filter panel collapses (accordion toggles) and the list goes
-single-column; the page must never scroll horizontally. Spacing follows a light
+The composition is **the back matter of a hymnal**, in three bands:
+
+1. a thin top links bar (`#f4f4f4`, hairline bottom border) for podcast feed links;
+2. a full-width Deep Teal header band (`#00506c`) carrying the church logo, the archive
+   `h1`, the archive subtitle, and the search field;
+3. the page body, a `260px minmax(0, 1fr)` two-column grid — a sticky facet rail on the
+   left, the register on the right.
+
+The register is one continuous, numbered, year-grouped index (accession number, title,
+passage · series · speaker, date) with sticky year headings and no pagination; it is the
+page. A fixed year rail on the right edge (desktop only) jumps to a year and marks the
+current one. Opening a sermon replaces the register with a 46rem reading view — facts,
+description, audio, transcript, related sermons — and the URL carries the slug hash, so
+every sermon is linkable and Back returns to the exact scroll position.
+
+The archive's own breakpoints are `600 / 900 / 1200`, not the church theme's: below 900px
+the facet rail collapses into per-facet toggles and the year rail is dropped; below 600px
+everything is single-column. The page must never scroll horizontally. Spacing follows the
 4/8/16/20/40 rhythm, with 20px as the default gap between panels and list items.
 
 ## Elevation & Depth
@@ -276,11 +311,21 @@ is no hard-edged, square-cornered element in the interface.
 - **Link / Ghost:** text in Deep Teal with no fill.
 
 ### Chips
-- **Style:** pill-shaped (30px radius), on white or `#f1f1f1`; the active filter link
-  is bold rather than recolored.
-- **State:** passive filter values in a left list read as plain Deep Teal links; the
-  currently applied filter is emphasized by weight, and "Clear All Filters" is the
-  destructive action (red) and should be visually secondary.
+- **Style:** pill-shaped (30px radius), white with a hairline `#e6e6e6` border, Caption
+  type, label on the left and a circular remove control on the right (minimum 24px
+  target).
+- **State:** a chip is the record of one applied filter ("Series: Praying the Psalms") or
+  of the current search ("Search: grace"). Removing a chip removes exactly that filter;
+  "Clear all" clears everything and stays visually secondary.
+
+### Facet Rail
+- **Style:** a sticky white panel, 260px, hairline border, 4px radius, one collapsible
+  section per facet (series, preacher, year, topic).
+- **Options:** a full-width row of Roboto Body text with a right-aligned count in
+  Caption. An applied option is bold with a cyan left accent and its count inverted onto
+  cyan; it is never a recolored link.
+- **Counts:** each option's count reflects what is reachable with the *other* facets
+  applied, so the rail narrows as you choose.
 
 ### Cards / Containers
 - **Corner Style:** 4px radius.
@@ -296,16 +341,25 @@ is no hard-edged, square-cornered element in the interface.
 - **Disabled:** `#f1f1f1` background, reduced opacity.
 
 ### Navigation
-- **Style:** a single top links bar (thin, `#f4f4f4`, hairline bottom border) above a
-  full-width header band carrying the church logo. Nav text is Roboto 15px; links are
-  Deep Teal. Active state is a weight/underline change, never a color swap to cyan.
+- **Style:** a single top links bar (thin, `#f4f4f4`, hairline bottom border) above the
+  Deep Teal header band carrying the church logo, the archive `h1` and the search field.
+  Bar links are Roboto Caption in Deep Teal; the current year in the right-edge year
+  rail is a weight change, never a color swap to cyan.
+
+### Signature Component — The Register Row
+- The archive's distinctive unit: one row of the index, laid out as accession number ·
+  title · meta · date, with a hairline rule beneath and a faint tonal tint on hover. The
+  accession number is tabular Caption in muted grey. No card, no shadow, no thumbnail —
+  the archive has no imagery and must not imply it is missing.
 
 ### Signature Component — Sermon Detail & Transcript
-- The archive's distinctive unit: a sermon row that expands into a detail view with
-  metadata, a related-sermons list, and a collapsible transcript
-  (`.transcript-toggle` / `.transcript-section`). The transcript is the longest read in
-  the system, so it is pure Roboto body at 15px/1.55 in a 65–75ch measure, with a
-  quiet, bordered container. It is a finding aid, not an authoritative text.
+- A sermon row opens into a 46rem reading view: facts as a definition list (Date, Series,
+  Speaker, Reading, Topics — series and speaker are links that apply that filter back on
+  the index), the description, the audio player, a collapsible transcript, related
+  sermons by series and speaker, and a link out to the original stalfreds.org listing.
+- The transcript is the longest read in the system, so it is pure Roboto body at
+  15px/1.55 in a 68ch measure, paragraphised for reading, lazily fetched, and labelled
+  a machine-generated finding aid, not an authoritative text.
 
 ## Do's and Don'ts
 
@@ -317,8 +371,8 @@ is no hard-edged, square-cornered element in the interface.
   one primary action per view.
 - **Do** separate surfaces with tonal layering and hairline borders; lift only on
   hover/focus.
-- **Do** keep the page single-column and simple; put complexity in the pipeline, not
-  the interface.
+- **Do** keep the index legible before any interaction — it is the page, not a preview of
+  one. Put complexity in the pipeline, not the interface.
 
 ### Don't:
 - **Don't** hardcode `#007bff`, `#0000ee`, or any off-palette blue for links or

@@ -36,9 +36,13 @@ The new toolset is located in the `sermon_manager/` directory. Each tool is a st
 
 ## Design System & Archive Frontend
 
-The sermon archive web page (`sermon-archive/stalfreds-sermons.html`) is the public face of this project. It is **hand-maintained**: `sermon_manager.py export` regenerates only `sermons.json`, `manifest.json`, `podcast_feed.xml`, `transcripts/`, and `search.db` — it does **not** touch the HTML. Edit the HTML directly.
+The sermon archive web page (`sermon-archive/stalfreds-sermons.html`) is the public face of this project. It is **hand-maintained**: `sermon_manager.py export` regenerates only `sermons.json`, `manifest.json`, `podcast_feed.xml`, `transcripts/`, and `search.db` — it does **not** touch the HTML or CSS. Edit `stalfreds-sermons.html` and `sermon-archive/stalfreds.css` directly.
 
-Data assets are content-addressed: `export` writes `manifest.json` with a `sermons` and `transcripts` thumbprint (content hash), and the page fetches `sermons.json` and `transcripts/<slug>.json` with `?v=<thumbprint>`. This busts Apache's 2-day `mod_expires` cache while keeping each version cacheable. `search.php` sends `Cache-Control: no-store` itself, and `sermon-archive/.htaccess` sets `no-cache, must-revalidate` on the shell HTML and `manifest.json` so deploys go live immediately (ETag makes revalidation a cheap 304).
+The page carries **its own stylesheet** (`sermon-archive/stalfreds.css`), built entirely from `DESIGN.md` tokens; the church's hosted theme stylesheet is no longer imported. Google Fonts (Montserrat, Roboto) is still loaded from its CDN, as are the CloudFront logo and favicon. There is no build step and no bundler: the CSS is shipped as written.
+
+The page's shape is the back matter of a hymnal: a faceted, numbered, year-grouped index of all sermons (no pagination) that opens into a typeset reading view at `#<slug>`. Filters and the search term live in query params, the open sermon in the hash, so every view is linkable and Back restores scroll position.
+
+Data assets are content-addressed: `export` writes `manifest.json` with a `sermons` and `transcripts` thumbprint (content hash), and the page fetches `sermons.json` and `transcripts/<slug>.json` with `?v=<thumbprint>`. This busts Apache's 2-day `mod_expires` cache while keeping each version cacheable. `search.php` sends `Cache-Control: no-store` itself, and `sermon-archive/.htaccess` sets `no-cache, must-revalidate` on the shell HTML, `stalfreds.css`, and `manifest.json` so deploys go live immediately (ETag makes revalidation a cheap 304).
 
 ### Source of Truth
 

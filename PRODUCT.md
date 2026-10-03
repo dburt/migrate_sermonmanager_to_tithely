@@ -103,8 +103,10 @@ with vanilla JS plus one PHP endpoint (`search.php`) that queries the read-only 
   sizes collide. Title + date is the established fallback.
 - `sermons.json` currently carries no `image_url` or `preacher_image_url` field, although the
   page branches on both. No sermon or preacher imagery renders from the export today.
-- The page loads the church's own hosted theme stylesheet and Google Fonts, so its appearance
-  depends on those third-party origins staying reachable.
+- The page styles itself with its own `stalfreds.css`, built from the church palette and
+  typography in `DESIGN.md`, and loads Montserrat / Roboto from Google Fonts. Its appearance
+  no longer depends on the church's hosted theme stylesheet, but still depends on that
+  third-party font origin staying reachable.
 
 **Undecided:** whether anything on the archive page moves beyond experiment. Experiments are in
 progress; there is no roadmap and no commitment to change the production site.
@@ -113,9 +115,9 @@ progress; there is no roadmap and no commitment to change the production site.
 
 The archive is deliberately subordinate to the church's identity, not a separate brand. It
 presents as "St Alfred's Sermons Archive" for St Alfred's Anglican Church and uses the church's
-own assets — logo and favicon — plus the church's hosted theme stylesheet and its Montserrat /
-Roboto pairing. It invents no visual or verbal identity of its own, and must not imply it is an
-official second home for the church while Tithely is the production site.
+own assets — logo and favicon — plus the church's Montserrat / Roboto pairing, reproduced
+in the archive's own stylesheet. It invents no visual or verbal identity of its own, and must not
+imply it is an official second home for the church while Tithely is the production site.
 
 ## Evidence on Hand
 

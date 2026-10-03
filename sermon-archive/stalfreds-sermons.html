@@ -3,731 +3,919 @@
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>St. Alfred's Sermons Archive</title>
+    <title>St Alfred's Sermons Archive</title>
+    <meta name="description" content="A searchable archive of St Alfred's Anglican Church sermons — filter by series, preacher, year and topic, then read or listen, with full-text transcript search.">
     <link href="https://dq5pwpg1q8ru0.cloudfront.net/2025/07/14/05/50/41/ba22a2dc-62a1-46e4-8e1d-e186c64a74e7/St_Alfreds_Favicon-64x64px.png" rel="shortcut icon" type="image/x-icon" />
-    <link rel="stylesheet" media="all" href="https://stalfreds.org/themes/stylesheet.css?timestamp=2025-08-08+16%3A03%3A26+%2B1000" />
-    <link href="https://fonts.googleapis.com/css?family=Montserrat:100,200,300,regular,500,600,700,800,900,100italic,200italic,300italic,italic,500italic,600italic,700italic,800italic,900italic|Roboto:100,200,300,regular,500,600,700,800,900,100italic,200italic,300italic,italic,500italic,600italic,700italic,800italic,900italic&amp;display=swap" rel="stylesheet" type="text/css" async="async" />
-    <style>
-        /* Your custom styles or overrides can go here */
-        html {
-          box-sizing: border-box;
-        }
-        *, *:before, *:after {
-          box-sizing: inherit;
-        }
-        .visually-hidden {
-          position: absolute;
-          width: 1px;
-          height: 1px;
-          padding: 0;
-          margin: -1px;
-          overflow: hidden;
-          clip: rect(0, 0, 0, 0);
-          white-space: nowrap;
-          border: 0;
-        }
-        body { font-family: 'Roboto', sans-serif; margin: 0; background: #f4f4f4; color: #333; }
-        .top-links-bar {
-            text-align: center;
-            padding: 10px;
-            background: #f4f4f4;
-            border-bottom: 1px solid #e6e6e6;
-        }
-        .header {
-            min-height: 200px;
-            display: flex;
-            align-items: center;
-            justify-content: center;
-            background-color: #333;
-            color: #fff;
-            padding: 20px;
-            text-align: center;
-            border-bottom: 1px solid #e6e6e6;
-        }
-        .header img {
-            max-height: 150px;
-        }
-        .container { max-width: 1200px; margin: 20px auto; padding: 0 20px; }
-        #filters { display: flex; flex-wrap: wrap; gap: 20px; background: #fff; padding: 20px; border-radius: 4px; margin-bottom: 20px; }
-        .filter-group { flex: 1; min-width: 200px; }
-        .filter-group h3 { margin-top: 0; border-bottom: 2px solid #e6e6e6; padding-bottom: 10px; font-size: 1.1em; } 
-        .filter-group ul { list-style: none; padding: 0; margin: 0; max-height: 200px; overflow-y: auto; }
-        #text-filter-input {
-            width: 100%;
-            padding: 8px;
-            border: 1px solid #e6e6e6;
-            border-radius: 4px;
-        }
-        .filter-group li a { color: #00506c; text-decoration: none; cursor: pointer; display: block; padding: 5px 0; }
-        .filter-group li a:hover { text-decoration: underline; }
-        .filter-group li a.active-filter-link { font-weight: bold; }
-        #active-filter { text-align: center; margin-bottom: 20px; }
-        #clear-filter-btn { background: #00506c; color: white; border: none; padding: 10px 15px; border-radius: 4px; cursor: pointer; display: none; }
-        .filter-pill { display: inline-block; padding: 5px 10px; background-color: #f1f1f1; border-radius: 30px; margin: 5px; font-size: 0.9em; }
-        .filter-pill-remove { cursor: pointer; font-weight: bold; margin-left: 5px; color: #999; }
-        .filter-pill-remove:hover { color: #333; }
-        .sermon-list { display: grid; grid-template-columns: repeat(auto-fill, minmax(300px, 1fr)); gap: 20px; list-style: none; padding: 0; margin: 0; }
-        .sermon-item { background: #fff; border: 1px solid #e6e6e6; padding: 15px; cursor: pointer; transition: box-shadow 0.3s; border-radius: 4px; }
-        .sermon-item img {
-            width: 100%;
-            height: auto;
-        }
-        .sermon-item:hover { box-shadow: 0 4px 15px rgba(0,0,0,0.1); }
-        .sermon-item h3 { margin-top: 0; color: #00506c; font-size: 1.1em; }
-        .sermon-item p { font-size: 0.9em; color: #666; margin: 5px 0 0; }
-        .sermon-detail { display: none; background: #fff; padding: 30px; margin-top: 20px; border: 1px solid #e6e6e6; border-radius: 4px; }
-        .sermon-detail img {
-            width: 100%;
-            height: auto;
-        }
-        .sermon-detail.active { display: block; }
-        .sermon-detail h2 { margin-top: 0; }
-        .sermon-detail .meta { color: #666; font-size: 0.9em; border-bottom: 1px solid #e6e6e6; padding-bottom: 15px; margin-bottom: 15px;}
-        .sermon-detail .related-sermons { margin-top: 20px; }
-        .back-button { display: inline-block; margin-bottom: 20px; cursor: pointer; color: #00506c; font-weight: bold; }
-        audio { width: 100%; margin-top: 20px; }
-        .transcript-section { margin-top: 20px; }
-        .transcript-toggle {
-            background: #00506c; color: white; border: none; padding: 10px 18px;
-            border-radius: 4px; cursor: pointer; font-size: 0.95em;
-        }
-        .transcript-toggle:hover { background: #002a39; }
-        .transcript-content {
-            background: #f4f4f4; border: 1px solid #e6e6e6; border-radius: 4px;
-            padding: 18px; margin-top: 10px; max-height: 60vh; overflow-y: auto;
-            line-height: 1.6; white-space: pre-wrap; font-size: 0.95em;
-        }
-        #pagination { display: flex; justify-content: center; align-items: center; padding: 20px 0; }
-        #pagination a, #pagination span {
-            display: inline-block;
-            padding: 10px 18px;
-            margin: 0 8px;
-            border-radius: 4px;
-            line-height: 1;
-        }
-        #pagination a {
-            color: #00506c;
-            text-decoration: none;
-            transition: background-color .3s;
-            border: 1px solid #e6e6e6;
-            cursor: pointer;
-        }
-        #pagination span {
-            color: #333;
-            border: 1px solid transparent;
-        }
-        #pagination a.active {
-            background-color: #0099ce;
-            color: white;
-            border: 1px solid #0086b5;
-        }
-        #pagination a:hover:not(.active) { background-color: #e6e6e6; }
-
-        /* Custom grid for related sermons */
-        .related-sermons .row {
-            display: flex;
-            flex-wrap: wrap;
-            margin: 0 -15px; /* Gutter simulation */
-        }
-
-        .related-sermons .col-md-6 {
-            width: 100%;
-            padding: 0 15px; /* Gutter simulation */
-        }
-
-        @media (min-width: 768px) {
-            .related-sermons .col-md-6 {
-                flex: 0 0 50%;
-                max-width: 50%;
-            }
-        }
-
-        /* Accordion styles for mobile filters */
-        #filters .accordion-toggle { color: inherit; text-decoration: none; pointer-events: none; }
-        #filters .accordion-content { display: block; }
-
-        @media (max-width: 767px) {
-            #filters { display: block; padding: 0 10px; overflow-x: hidden; }
-            .filter-group { border-bottom: 1px solid #e6e6e6; }
-            .filter-group:last-child { border-bottom: none; }
-            .filter-group h3 { margin: 0; border-bottom: none; padding-bottom: 0; }
-            #filters .accordion-toggle { display: block; padding: 12px 0; pointer-events: auto; position: relative; }
-            #filters .accordion-toggle::after { content: '+'; position: absolute; right: 5px; font-size: 1.5em; line-height: 1; }
-            #filters .filter-group.active .accordion-toggle::after { content: '−'; }
-            #filters .accordion-content { display: none; padding-bottom: 15px; }
-            #filters .filter-group.active .accordion-content { display: block; }
-
-        /* Fix for sermon list overflow on small screens */
-        .sermon-list {
-            grid-template-columns: 1fr; /* Force single column */
-        }
-
-        #pagination a, #pagination span {
-            padding: 8px 2px;
-            margin: 0 4px;
-            font-size: 0.9em;
-        }
-        }
-    </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css?family=Montserrat:100,200,300,regular,500,600,700,800,900,100italic,200italic,300italic,italic,500italic,600italic,700italic,800italic,900italic|Roboto:100,200,300,regular,500,600,700,800,900,100italic,200italic,300italic,italic,500italic,600italic,700italic,800italic,900italic&amp;display=swap" rel="stylesheet" type="text/css" />
+    <link rel="stylesheet" href="stalfreds.css">
 </head>
 <body>
 
-    <nav class="top-links-bar" aria-label="Podcast links">
-        <a href="podcast_feed.xml" target="_blank">Podcast Feed</a> |
-        <a href="https://podba.se/validate/?url=https://dave.burt.id.au/podcast_feed.xml" target="_blank">Validate Feed</a>
-    </nav>
+    <a class="skip-link" href="#register">Skip to the sermon index</a>
 
-    <header class="header">
-        <h1 class="visually-hidden">St Alfred's Sermons Archive</h1>
-        <img alt="St Alfred's Anglican Church" src="https://dq5pwpg1q8ru0.cloudfront.net/2025/06/11/03/21/50/a7103ade-1605-4c54-94d9-693663b963a2/St_Alfreds_Logo-white.png" />
+    <div class="topbar">
+        <nav class="topbar__inner" aria-label="Podcast links">
+            <a class="topbar__link" href="podcast_feed.xml" target="_blank" rel="noopener">Podcast feed</a>
+            <a class="topbar__link" href="https://podba.se/validate/?url=https://dave.burt.id.au/podcast_feed.xml" target="_blank" rel="noopener">Validate feed</a>
+        </nav>
+    </div>
+
+    <header class="masthead">
+        <div class="masthead__inner">
+            <div class="masthead__brand">
+                <a class="masthead__logo-link" href="#" id="brand-home">
+                    <img class="masthead__logo" src="https://dq5pwpg1q8ru0.cloudfront.net/2025/06/11/03/21/50/a7103ade-1605-4c54-94d9-693663b963a2/St_Alfreds_Logo-white.png" alt="St Alfred's Anglican Church" />
+                </a>
+                <div class="masthead__titles">
+                    <h1 class="display masthead__title">St Alfred's Sermons Archive</h1>
+                    <span class="masthead__subtitle" id="archive-subtitle">A 20-year archive of St Alfred's Anglican Church sermons</span>
+                </div>
+            </div>
+
+            <form class="search" id="search-form" role="search">
+                <svg class="search__icon" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                    <circle cx="11" cy="11" r="7"></circle>
+                    <line x1="16.5" y1="16.5" x2="21" y2="21"></line>
+                </svg>
+                <label class="visually-hidden" for="search-input">Search sermons and transcripts</label>
+                <input class="search__input" id="search-input" type="search" placeholder="Search sermons and transcripts" autocomplete="off" spellcheck="false">
+                <button class="search__clear" id="search-clear" type="button" aria-label="Clear search" hidden>
+                    <svg viewBox="0 0 24 24" width="16" height="16" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" aria-hidden="true">
+                        <line x1="6" y1="6" x2="18" y2="18"></line>
+                        <line x1="18" y1="6" x2="6" y2="18"></line>
+                    </svg>
+                </button>
+            </form>
+        </div>
     </header>
 
-    <main class="container">
-        
-        <section id="filters" aria-label="Filter sermons"></section>
-        <div id="active-filter">
-            <span id="current-filter-display"></span>
-            <button id="clear-filter-btn">Clear All Filters</button>
-            <span id="sermon-count"></span>
+    <main class="page">
+
+        <div class="index" id="index-view">
+            <aside class="facets" aria-label="Filter sermons">
+                <h2 class="visually-hidden">Filter sermons</h2>
+                <div id="facets"></div>
+            </aside>
+
+            <section class="register" id="register" aria-label="Sermon index">
+                <div class="status">
+                    <p class="status__count" id="status-count" role="status" aria-live="polite"></p>
+                    <div class="chips" id="active-chips"></div>
+                    <button class="btn btn--ghost" id="clear-filters" type="button" hidden>Clear all</button>
+                </div>
+                <div id="register-list"></div>
+                <p class="transcript__note" id="search-note" hidden></p>
+            </section>
         </div>
 
-        <section id="sermon-list-container" aria-label="Sermon list">
-            <ul id="sermon-list" class="sermon-list"></ul>
-            <div id="pagination"></div>
-        </section>
-        
-        <section id="sermon-detail" class="sermon-detail" aria-label="Sermon details"></section>
+        <article class="detail" id="detail-view" aria-label="Sermon" hidden></article>
+
     </main>
 
-    <script>
-        const sermonList = document.getElementById('sermon-list');
-        const sermonDetail = document.getElementById('sermon-detail');
-        const sermonListContainer = document.getElementById('sermon-list-container');
-        const filtersContainer = document.getElementById('filters');
-        const clearFilterBtn = document.getElementById('clear-filter-btn');
-        const currentFilterDisplay = document.getElementById('current-filter-display');
-        const activeFilterContainer = document.getElementById('active-filter');
-        
-        let allSermons = [];
-        let currentSermons = [];
-        let currentPage = 1;
-        const sermonsPerPage = 12;
-        let searchTerm = '';
-        let serverHits = new Set();
-        let serverSeq = 0;
-        let searchTimer = null;
+    <footer class="footer">
+        <div class="footer__inner">
+            <span>St Alfred's Anglican Church · sermon archive</span>
+            <a href="podcast_feed.xml">Podcast feed</a>
+            <a href="https://stalfreds.org" target="_blank" rel="noopener">stalfreds.org</a>
+        </div>
+    </footer>
 
-        let activeFilters = {
-            sermon_series: new Set(),
-            preacher: new Set(),
-            year: new Set(),
-            sermon_topics: new Set()
+    <noscript>
+        <div class="page"><div class="notice"><strong>JavaScript is required</strong>The sermon index loads its data in the browser. Please enable JavaScript to browse the archive.</div></div>
+    </noscript>
+
+    <script>
+    (function () {
+        'use strict';
+
+        var els = {
+            indexView: document.getElementById('index-view'),
+            register: document.getElementById('register'),
+            registerList: document.getElementById('register-list'),
+            statusCount: document.getElementById('status-count'),
+            activeChips: document.getElementById('active-chips'),
+            clearFilters: document.getElementById('clear-filters'),
+            searchNote: document.getElementById('search-note'),
+            facets: document.getElementById('facets'),
+            searchForm: document.getElementById('search-form'),
+            searchInput: document.getElementById('search-input'),
+            searchClear: document.getElementById('search-clear'),
+            detailView: document.getElementById('detail-view'),
+            subtitle: document.getElementById('archive-subtitle'),
+            brandHome: document.getElementById('brand-home')
         };
 
-        let transcriptVersion = '';
+        var FACETS = [
+            { key: 'sermon_series', label: 'Series' },
+            { key: 'preacher', label: 'Preacher' },
+            { key: 'year', label: 'Year' },
+            { key: 'sermon_topics', label: 'Topic' }
+        ];
 
-        async function loadSermons() {
-            let sermonsVersion = '';
-            try {
-                const res = await fetch('manifest.json', { cache: 'no-cache' });
-                if (res.ok) {
-                    const manifest = await res.json();
-                    sermonsVersion = manifest.sermons || '';
-                    transcriptVersion = manifest.transcripts || '';
-                }
-            } catch (error) {
-                console.warn('Cache manifest unavailable; loading sermons without cache-busting.', error);
-            }
-            const url = sermonsVersion
-                ? `sermons.json?v=${encodeURIComponent(sermonsVersion)}`
-                : 'sermons.json';
-            try {
-                const response = await fetch(url);
-                const data = await response.json();
-                allSermons = data.map((sermon, index) => ({...sermon, originalIndex: index}));
-                allSermons.sort((a, b) => new Date(b.post_date_gmt) - new Date(a.post_date_gmt));
-                applyAllFilters();
-            } catch (error) {
-                console.error('Error loading sermons.json:', error);
-            }
+        var FACET_LABELS = {
+            sermon_series: 'Series',
+            preacher: 'Preacher',
+            year: 'Year',
+            sermon_topics: 'Topic'
+        };
+
+        var state = {
+            all: [],
+            bySlug: new Map(),
+            filtered: [],
+            query: '',
+            filters: { sermon_series: new Set(), preacher: new Set(), year: new Set(), sermon_topics: new Set() },
+            serverHits: new Set(),
+            serverSeq: 0,
+            searchTimer: null,
+            renderTimer: null,
+            loaded: false,
+            detailOpen: false,
+            facetOpen: {},
+            yearObserver: null,
+            lastFocus: null,
+            scrollY: 0,
+            transcripts: {},
+            paragraphCache: {}
+        };
+
+        var TRANSCRIPT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>';
+
+        function esc(value) {
+            return String(value == null ? '' : value)
+                .replace(/&/g, '&amp;')
+                .replace(/</g, '&lt;')
+                .replace(/>/g, '&gt;')
+                .replace(/"/g, '&quot;')
+                .replace(/'/g, '&#39;');
         }
 
-        loadSermons();
+        function dateFrom(sermon) {
+            return new Date(String(sermon.post_date_gmt || '').replace(' ', 'T') + 'Z');
+        }
 
-        clearFilterBtn.addEventListener('click', () => {
-            Object.keys(activeFilters).forEach(key => activeFilters[key].clear());
-            searchTerm = '';
-            serverHits = new Set();
-            serverSeq++;
-            applyAllFilters();
-        });
+        function yearOf(sermon) {
+            return dateFrom(sermon).getFullYear();
+        }
 
-        function applyAllFilters() {
-            // Category Filters
-            let filteredSermons = allSermons.filter(sermon => {
-                const seriesMatch = activeFilters.sermon_series.size === 0 || activeFilters.sermon_series.has(sermon.sermon_series);
-                const preacherMatch = activeFilters.preacher.size === 0 || activeFilters.preacher.has(sermon.preacher);
-                const yearMatch = activeFilters.year.size === 0 || activeFilters.year.has(new Date(sermon.post_date_gmt).getFullYear());
-                const topicsMatch = activeFilters.sermon_topics.size === 0 || [...activeFilters.sermon_topics].every(topic => (sermon.sermon_topics || '').includes(topic));
-                return seriesMatch && preacherMatch && yearMatch && topicsMatch;
+        function fmtShort(sermon) {
+            return dateFrom(sermon).toLocaleString('en-AU', {
+                timeZone: 'Australia/Melbourne',
+                day: 'numeric',
+                month: 'short',
+                year: 'numeric'
+            });
+        }
+
+        function fmtLong(sermon) {
+            return dateFrom(sermon).toLocaleString('en-AU', {
+                timeZone: 'Australia/Melbourne',
+                day: 'numeric',
+                month: 'long',
+                year: 'numeric'
+            });
+        }
+
+        function ymd(sermon) {
+            return dateFrom(sermon).toISOString().slice(0, 10);
+        }
+
+        function topicsOf(sermon) {
+            return (sermon.sermon_topics || '')
+                .split(',')
+                .map(function (t) { return t.trim(); })
+                .filter(Boolean);
+        }
+
+        function normValue(key, value) {
+            return key === 'year' ? Number(value) : value;
+        }
+
+        function byDateDesc(a, b) {
+            return dateFrom(b) - dateFrom(a);
+        }
+
+        /* --- Filtering ----------------------------------------------------- */
+        function matchesQuery(sermon) {
+            if (!state.query.trim()) return true;
+            var words = state.query.toLowerCase().split(/\s+/).filter(Boolean);
+            var haystack = [
+                sermon.title,
+                sermon.sermon_series,
+                sermon.preacher,
+                sermon.bible_passage,
+                sermon.sermon_topics,
+                sermon.content_text
+            ].join(' ').toLowerCase();
+            return words.every(function (word) { return haystack.indexOf(word) !== -1; });
+        }
+
+        function matchesFilters(sermon, ignoreKey) {
+            var f = state.filters;
+            if (ignoreKey !== 'sermon_series' && f.sermon_series.size && !f.sermon_series.has(sermon.sermon_series)) return false;
+            if (ignoreKey !== 'preacher' && f.preacher.size && !f.preacher.has(sermon.preacher)) return false;
+            if (ignoreKey !== 'year' && f.year.size && !f.year.has(yearOf(sermon))) return false;
+            if (ignoreKey !== 'sermon_topics' && f.sermon_topics.size && !topicsOf(sermon).some(function (t) { return f.sermon_topics.has(t); })) return false;
+            return true;
+        }
+
+        function matches(sermon, ignoreKey) {
+            return matchesQuery(sermon) && matchesFilters(sermon, ignoreKey);
+        }
+
+        function computeResults() {
+            var base = state.all.filter(function (s) { return matches(s, null); });
+            if (state.serverHits.size) {
+                var have = new Set(base.map(function (s) { return s.slug; }));
+                state.serverHits.forEach(function (slug) {
+                    var record = state.bySlug.get(slug);
+                    if (record && !have.has(slug) && matchesFilters(record, null)) {
+                        base.push(record);
+                        have.add(slug);
+                    }
+                });
+            }
+            base.sort(byDateDesc);
+            state.filtered = base;
+        }
+
+        /* --- Facets -------------------------------------------------------- */
+        function facetValues(sermon, key) {
+            if (key === 'sermon_topics') return topicsOf(sermon);
+            if (key === 'year') return [yearOf(sermon)];
+            return [sermon[key]];
+        }
+
+        function buildFacetOptions(ignoreKey) {
+            var counts = {};
+            var latest = {};
+            state.all.forEach(function (sermon) {
+                if (!matches(sermon, ignoreKey)) return;
+                facetValues(sermon, ignoreKey).forEach(function (value) {
+                    if (value == null || value === '' || Number.isNaN(value)) return;
+                    counts[value] = (counts[value] || 0) + 1;
+                    var t = dateFrom(sermon).getTime();
+                    if (!latest[value] || t > latest[value]) latest[value] = t;
+                });
+            });
+            return Object.keys(counts).sort(function (a, b) {
+                if (ignoreKey === 'year') return Number(b) - Number(a);
+                if (ignoreKey === 'sermon_series') return (latest[b] || 0) - (latest[a] || 0);
+                if (ignoreKey === 'preacher') {
+                    if (counts[b] !== counts[a]) return counts[b] - counts[a];
+                    return a.localeCompare(b);
+                }
+                return a.localeCompare(b);
+            }).map(function (value) {
+                return { value: value, count: counts[value] };
+            });
+        }
+
+        function renderFacets() {
+            var isDesktop = window.matchMedia('(min-width: 901px)').matches;
+            var html = '';
+            FACETS.forEach(function (facet, index) {
+                var id = 'facet-panel-' + index;
+                var isOpen = state.facetOpen[facet.key];
+                if (isOpen === undefined) isOpen = isDesktop;
+                var expanded = isOpen ? 'true' : 'false';
+                html += '<div class="facet">';
+                html += '<button class="facet__toggle" type="button" aria-expanded="' + expanded + '" aria-controls="' + id + '" data-facet-key="' + esc(facet.key) + '">' + esc(facet.label) + '</button>';
+                html += '<ul class="facet__list" id="' + id + '"' + (isOpen ? '' : ' hidden') + '>';
+                var options = buildFacetOptions(facet.key);
+                if (!options.length) {
+                    html += '<li class="facet__empty">No values</li>';
+                } else {
+                    options.forEach(function (option) {
+                        var pressed = state.filters[facet.key].has(normValue(facet.key, option.value)) ? 'true' : 'false';
+                        html += '<li><button class="facet__option" type="button" aria-pressed="' + pressed +
+                            '" data-key="' + esc(facet.key) + '" data-value="' + esc(option.value) + '">' +
+                            '<span>' + esc(option.value) + '</span>' +
+                            '<span class="facet__count">' + option.count + '</span></button></li>';
+                    });
+                }
+                html += '</ul></div>';
+            });
+            els.facets.innerHTML = html;
+        }
+
+        /* --- Register ------------------------------------------------------ */
+        function metaHtml(sermon) {
+            var parts = [];
+            if (sermon.bible_passage) parts.push(esc(sermon.bible_passage));
+            if (sermon.sermon_series) parts.push(esc(sermon.sermon_series));
+            if (sermon.preacher) parts.push(esc(sermon.preacher));
+            if (!parts.length) return '';
+            return '<span class="entry__meta">' + parts.map(function (p) { return '<span>' + p + '</span>'; }).join('') + '</span>';
+        }
+
+        function renderRegister() {
+            var groups = [];
+            var currentYear = null;
+            var currentList = null;
+
+            state.filtered.forEach(function (sermon) {
+                var year = yearOf(sermon);
+                if (year !== currentYear) {
+                    currentYear = year;
+                    currentList = [];
+                    groups.push({ year: year, items: currentList });
+                }
+                currentList.push(sermon);
             });
 
-            // Text Filter
-            if (searchTerm.trim() !== '') {
-                const searchWords = searchTerm.toLowerCase().split(/\s+/).filter(Boolean);
-                filteredSermons = filteredSermons.filter(sermon => {
-                    const searchableContent = [
-                        sermon.title,
-                        sermon.sermon_series,
-                        sermon.preacher,
-                        sermon.bible_passage,
-                        sermon.sermon_topics,
-                        sermon.content_text
-                    ].join(' ').toLowerCase();
-                    
-                    return searchWords.every(word => searchableContent.includes(word));
-                });
+            if (!groups.length) {
+                els.registerList.innerHTML = '<div class="notice"><strong>No sermons match those filters</strong>Try removing a filter or searching for a different word.</div>';
             } else {
-                serverHits = new Set();
-            }
-
-            // Merge in server-side transcript matches (search.php FTS)
-            if (serverHits.size > 0) {
-                const bySlug = new Map(allSermons.map(s => [s.slug, s]));
-                const have = new Set(filteredSermons.map(s => s.slug));
-                serverHits.forEach(slug => {
-                    const rec = bySlug.get(slug);
-                    if (rec && !have.has(slug)) filteredSermons.push(rec);
+                var html = '';
+                groups.forEach(function (group) {
+                    html += '<section class="year-group" id="year-' + group.year + '">';
+                    html += '<h2 class="year-heading">' + group.year + ' <span class="year-heading__count">' + group.items.length + (group.items.length === 1 ? ' sermon' : ' sermons') + '</span></h2>';
+                    html += '<ol class="entries">';
+                    group.items.forEach(function (sermon) {
+                        html += '<li class="entry">';
+                        html += '<a class="entry__link" href="#' + esc(sermon.slug) + '" data-slug="' + esc(sermon.slug) + '">';
+                        html += '<span class="entry__num" aria-hidden="true">' + esc(sermon.acc) + '</span>';
+                        html += '<span class="entry__main">';
+                        html += '<span class="entry__title">' + esc(sermon.title || 'Untitled') + '</span>';
+                        html += metaHtml(sermon);
+                        if (sermon.has_transcript) {
+                            html += '<span class="entry__transcript">' + TRANSCRIPT_ICON + 'Transcript</span>';
+                        }
+                        html += '</span>';
+                        html += '<time class="entry__date" datetime="' + ymd(sermon) + '">' + esc(fmtShort(sermon)) + '</time>';
+                        html += '</a></li>';
+                    });
+                    html += '</ol></section>';
                 });
+                els.registerList.innerHTML = html;
             }
 
-            currentSermons = filteredSermons;
-
-            currentPage = 1;
-            setupFilters(currentSermons);
-            displaySermons();
-            displayActiveFilters();
+            renderYearRail(groups);
         }
 
-        async function fetchServerSearch(term) {
-            const seq = ++serverSeq;
+        var railLinks = {};
+
+        function setActiveYear(year) {
+            Object.keys(railLinks).forEach(function (key) {
+                var isActive = key === year;
+                railLinks[key].classList.toggle('is-active', isActive);
+                if (isActive) railLinks[key].setAttribute('aria-current', 'true');
+                else railLinks[key].removeAttribute('aria-current');
+            });
+        }
+
+        function renderYearRail(groups) {
+            var existing = document.getElementById('year-rail');
+            if (existing) existing.remove();
+            if (state.yearObserver) {
+                state.yearObserver.disconnect();
+                state.yearObserver = null;
+            }
+            railLinks = {};
+            if (groups.length < 2) return;
+
+            var rail = document.createElement('nav');
+            rail.className = 'year-rail';
+            rail.id = 'year-rail';
+            rail.setAttribute('aria-label', 'Jump to year');
+            groups.forEach(function (group) {
+                var link = document.createElement('a');
+                link.href = '#year-' + group.year;
+                link.textContent = group.year;
+                link.addEventListener('click', function (event) {
+                    event.preventDefault();
+                    var heading = document.getElementById('year-' + group.year);
+                    if (heading) {
+                        setActiveYear(group.year);
+                        heading.scrollIntoView({ behavior: 'instant', block: 'start' });
+                    }
+                });
+                railLinks[group.year] = link;
+                rail.appendChild(link);
+            });
+            els.indexView.appendChild(rail);
+
+            if (!('IntersectionObserver' in window)) return;
+            state.yearObserver = new IntersectionObserver(function (entries) {
+                entries.forEach(function (entry) {
+                    if (entry.isIntersecting) setActiveYear(entry.target.id.replace('year-', ''));
+                });
+            }, { rootMargin: '-56px 0px -70% 0px' });
+            groups.forEach(function (group) {
+                var section = document.getElementById('year-' + group.year);
+                if (section) state.yearObserver.observe(section);
+            });
+            setActiveYear(groups[0].year);
+        }
+
+        function renderStatus() {
+            var count = state.filtered.length;
+            var label = count === 1 ? 'sermon' : 'sermons';
+            var text = '<strong>' + count + '</strong> ' + label;
+            if (state.query.trim()) text += ' matching &ldquo;' + esc(state.query.trim()) + '&rdquo;';
+            els.statusCount.innerHTML = text;
+
+            var chips = [];
+            Object.keys(state.filters).forEach(function (key) {
+                state.filters[key].forEach(function (value) {
+                    chips.push({ key: key, value: value, label: FACET_LABELS[key] + ': ' + value });
+                });
+            });
+            if (state.query.trim()) {
+                chips.push({ key: 'query', value: state.query, label: 'Search: ' + state.query });
+            }
+
+            els.activeChips.innerHTML = chips.map(function (chip) {
+                return '<span class="chip">' + esc(chip.label) +
+                    '<button class="chip__remove" type="button" aria-label="Remove ' + esc(chip.label) + '" data-key="' + esc(chip.key) + '" data-value="' + esc(chip.value) + '">&times;</button></span>';
+            }).join('');
+
+            els.clearFilters.hidden = chips.length === 0;
+            els.searchClear.hidden = !state.query.trim();
+
+            if (state.serverHits.size) {
+                els.searchNote.hidden = false;
+                els.searchNote.textContent = 'Including matches found inside sermon transcripts.';
+            } else {
+                els.searchNote.hidden = true;
+            }
+        }
+
+        function recalc() {
+            computeResults();
+            renderFacets();
+            renderRegister();
+            renderStatus();
+        }
+
+        function scheduleRecalc() {
+            clearTimeout(state.renderTimer);
+            state.renderTimer = setTimeout(recalc, 120);
+        }
+
+        function applyAndSync() {
+            recalc();
+            syncFilterURL();
+        }
+
+        /* --- URL / routing ------------------------------------------------- */
+        function syncFilterURL() {
+            var params = new URLSearchParams();
+            if (state.query.trim()) params.set('q', state.query.trim());
+            Object.keys(state.filters).forEach(function (key) {
+                var values = Array.from(state.filters[key]);
+                if (values.length) params.set(key, values.join('|'));
+            });
+            var query = params.toString();
+            var url = window.location.pathname + (query ? '?' + query : '') + window.location.hash;
+            history.replaceState(history.state, '', url);
+        }
+
+        function readFilterURL() {
+            var params = new URLSearchParams(window.location.search);
+            state.query = params.get('q') || '';
+            els.searchInput.value = state.query;
+            Object.keys(state.filters).forEach(function (key) {
+                var raw = params.get(key);
+                var values = raw ? raw.split('|').filter(Boolean).map(function (v) { return normValue(key, v); }) : [];
+                state.filters[key] = new Set(values);
+            });
+        }
+
+        function isDetailHash(hash) {
+            var slug = (hash || '').replace(/^#/, '');
+            return slug && state.bySlug.has(slug) ? slug : null;
+        }
+
+        function openDetail(slug, fromPop) {
+            var sermon = state.bySlug.get(slug);
+            if (!sermon) return;
+            if (!state.detailOpen) {
+                state.lastFocus = document.activeElement;
+                state.scrollY = window.scrollY;
+            }
+            state.detailOpen = true;
+            els.indexView.hidden = true;
+            els.detailView.hidden = false;
+            renderDetail(sermon);
+            if (!fromPop) {
+                history.pushState({ slug: slug }, '', '#' + encodeURIComponent(slug));
+            }
+            window.scrollTo(0, 0);
+            var heading = els.detailView.querySelector('h2');
+            if (heading) heading.focus({ preventScroll: true });
+        }
+
+        function closeDetail(fromPop) {
+            state.detailOpen = false;
+            els.detailView.hidden = true;
+            els.detailView.innerHTML = '';
+            els.indexView.hidden = false;
+            if (fromPop) {
+                window.scrollTo(0, state.scrollY || 0);
+            } else {
+                history.replaceState(history.state, '', window.location.pathname + window.location.search);
+                window.scrollTo(0, state.scrollY || 0);
+            }
+            if (state.lastFocus && document.contains(state.lastFocus)) {
+                state.lastFocus.focus({ preventScroll: true });
+            }
+        }
+
+        function routeFromLocation() {
+            var slug = isDetailHash(window.location.hash);
+            if (slug) {
+                openDetail(slug, true);
+            } else if (state.detailOpen) {
+                closeDetail(true);
+            }
+        }
+
+        /* --- Detail rendering ---------------------------------------------- */
+        function scriptureHtml(passage) {
+            if (!passage) return 'N/A';
+            return passage.split(';').map(function (part) {
+                var trimmed = part.trim();
+                if (!trimmed) return '';
+                return '<a href="https://ref.ly/' + encodeURIComponent(trimmed) + ';niv?t=biblia" target="_blank" rel="noopener noreferrer">' + esc(trimmed) + '</a>';
+            }).filter(Boolean).join(', ');
+        }
+
+        function relatedHtml(title, sermons) {
+            if (!sermons.length) return '';
+            return '<div><h3>' + esc(title) + '</h3><ul class="related__list">' +
+                sermons.map(function (s) {
+                    return '<li><a href="#' + esc(s.slug) + '" data-slug="' + esc(s.slug) + '">' + esc(s.title) + '</a></li>';
+                }).join('') + '</ul></div>';
+        }
+
+        function renderDetail(sermon) {
+            var related = state.all.filter(function (s) { return s.slug !== sermon.slug; });
+            var bySeries = related.filter(function (s) { return s.sermon_series === sermon.sermon_series; });
+            var byPreacher = related.filter(function (s) { return s.preacher === sermon.preacher; });
+
+            var description = sermon.content_text || sermon.description || '';
+            var facts = '';
+            facts += '<dt>Date</dt><dd>' + esc(fmtLong(sermon)) + '</dd>';
+            if (sermon.sermon_series) {
+                facts += '<dt>Series</dt><dd><button class="fact-link" type="button" data-filter-key="sermon_series" data-filter-value="' + esc(sermon.sermon_series) + '">' + esc(sermon.sermon_series) + '</button></dd>';
+            }
+            if (sermon.preacher) {
+                facts += '<dt>Preacher</dt><dd><button class="fact-link" type="button" data-filter-key="preacher" data-filter-value="' + esc(sermon.preacher) + '">' + esc(sermon.preacher) + '</button></dd>';
+            }
+            if (sermon.bible_passage) {
+                facts += '<dt>Reading</dt><dd>' + scriptureHtml(sermon.bible_passage) + '</dd>';
+            }
+            if (topicsOf(sermon).length) {
+                facts += '<dt>Topics</dt><dd>' + topicsOf(sermon).map(esc).join(', ') + '</dd>';
+            }
+
+            var html = '';
+            html += '<a class="detail__back" href="#" id="detail-back">&larr; All sermons</a>';
+            html += '<div class="detail__head">';
+            html += '<h2 class="headline detail__title" tabindex="-1">' + esc(sermon.title || 'Untitled') + '</h2>';
+            html += '<dl class="detail__facts">' + facts + '</dl>';
+            html += '</div>';
+
+            if (description) {
+                html += '<div class="detail__body"><p class="detail__description">' + esc(description) + '</p></div>';
+            }
+
+            if (sermon.audio_url) {
+                html += '<audio class="detail__audio" controls preload="none" src="' + esc(sermon.audio_url) + '"></audio>';
+            }
+
+            if (sermon.has_transcript) {
+                html += '<div class="transcript">';
+                html += '<button class="btn btn--secondary" id="transcript-toggle" type="button" aria-expanded="false" aria-controls="transcript-content">Show transcript</button>';
+                html += '<div class="transcript__content" id="transcript-content" hidden></div>';
+                html += '<p class="transcript__note">Machine-generated transcript, provided as a finding aid — not an authoritative text.</p>';
+                html += '</div>';
+            }
+
+            if (bySeries.length || byPreacher.length) {
+                html += '<div class="detail__section related">';
+                html += relatedHtml('More from this series', bySeries.slice(0, 8));
+                html += relatedHtml('More by this preacher', byPreacher.slice(0, 8));
+                html += '</div>';
+            }
+
+            if (sermon.permalink || sermon.perm) {
+                html += '<p class="transcript__note"><a href="' + esc(sermon.permalink || sermon.perm) + '" target="_blank" rel="noopener noreferrer">View the original listing on stalfreds.org</a></p>';
+            }
+
+            els.detailView.innerHTML = html;
+        }
+
+        function paragraphize(text) {
+            if (!text) return [];
+            if (/\n\s*\n/.test(text)) {
+                return text.split(/\n\s*\n/).map(function (p) { return p.trim(); }).filter(Boolean);
+            }
+            var sentences = text.match(/[^.!?]+[.!?]+["'\u2019\u201d)]*|\S+$/g) || [text];
+            var paragraphs = [];
+            var current = '';
+            sentences.forEach(function (sentence) {
+                sentence = sentence.trim();
+                if (!sentence) return;
+                if (current && current.length + sentence.length > 700) {
+                    paragraphs.push(current);
+                    current = sentence;
+                } else {
+                    current = current ? current + ' ' + sentence : sentence;
+                }
+            });
+            if (current) paragraphs.push(current);
+            return paragraphs;
+        }
+
+        function renderTranscript(slug, text) {
+            var container = document.getElementById('transcript-content');
+            if (!container) return;
+            var paragraphs = state.paragraphCache[slug] || (state.paragraphCache[slug] = paragraphize(text));
+            container.innerHTML = '';
+            paragraphs.forEach(function (paragraph) {
+                var p = document.createElement('p');
+                p.textContent = paragraph;
+                container.appendChild(p);
+            });
+        }
+
+        function toggleTranscript(slug) {
+            var toggle = document.getElementById('transcript-toggle');
+            var container = document.getElementById('transcript-content');
+            if (!toggle || !container || !slug) return;
+
+            if (container.hidden) {
+                if (!container.getAttribute('data-loaded')) {
+                    toggle.textContent = 'Loading…';
+                    toggle.disabled = true;
+                    loadTranscript(slug).then(function (text) {
+                        renderTranscript(slug, text);
+                        container.setAttribute('data-loaded', '1');
+                        toggle.disabled = false;
+                        container.hidden = false;
+                        toggle.textContent = 'Hide transcript';
+                        toggle.setAttribute('aria-expanded', 'true');
+                    }).catch(function () {
+                        toggle.disabled = false;
+                        toggle.textContent = 'Transcript unavailable';
+                    });
+                } else {
+                    container.hidden = false;
+                    toggle.textContent = 'Hide transcript';
+                    toggle.setAttribute('aria-expanded', 'true');
+                }
+            } else {
+                container.hidden = true;
+                toggle.textContent = 'Show transcript';
+                toggle.setAttribute('aria-expanded', 'false');
+            }
+        }
+
+        function loadTranscript(slug) {
+            if (state.transcripts[slug]) return Promise.resolve(state.transcripts[slug]);
+            var url = transcriptVersion
+                ? 'transcripts/' + encodeURIComponent(slug) + '.json?v=' + encodeURIComponent(transcriptVersion)
+                : 'transcripts/' + encodeURIComponent(slug) + '.json';
+            return fetch(url).then(function (response) {
+                if (!response.ok) throw new Error('no transcript');
+                return response.json();
+            }).then(function (data) {
+                state.transcripts[slug] = data.transcript || '';
+                return state.transcripts[slug];
+            });
+        }
+
+        /* --- Server search ------------------------------------------------- */
+        function fetchServerSearch(term) {
+            var seq = ++state.serverSeq;
             if (!term.trim()) {
-                serverHits = new Set();
+                state.serverHits = new Set();
                 return;
             }
-            try {
-                const res = await fetch('search.php?q=' + encodeURIComponent(term));
-                if (seq !== serverSeq) return; // stale response
-                if (!res.ok) throw new Error('search unavailable');
-                const data = await res.json();
-                if (seq !== serverSeq) return;
-                const hits = data.results || [];
-                serverHits = new Set(hits.map(h => h.slug).filter(Boolean));
-                if (searchTerm.trim() !== '') applyAllFilters();
-            } catch (e) {
-                console.error('Server search failed:', e);
-            }
+            fetch('search.php?q=' + encodeURIComponent(term)).then(function (response) {
+                if (seq !== state.serverSeq) return null;
+                if (!response.ok) throw new Error('search unavailable');
+                return response.json();
+            }).then(function (data) {
+                if (!data || seq !== state.serverSeq) return;
+                var hits = data.results || [];
+                state.serverHits = new Set(hits.map(function (h) { return h.slug; }).filter(Boolean));
+                if (state.query.trim()) recalc();
+            }).catch(function (error) {
+                console.error('Server search failed:', error);
+            });
+        }
+
+        /* --- Events -------------------------------------------------------- */
+        function handleSearchInput() {
+            state.query = els.searchInput.value;
+            state.serverHits = new Set();
+            els.searchClear.hidden = !state.query.trim();
+            scheduleRecalc();
+            syncFilterURL();
+            clearTimeout(state.searchTimer);
+            state.searchTimer = setTimeout(function () { fetchServerSearch(state.query); }, 300);
         }
 
         function toggleFilter(key, value) {
-            if (activeFilters[key].has(value)) {
-                activeFilters[key].delete(value);
+            value = normValue(key, value);
+            if (state.filters[key].has(value)) {
+                state.filters[key].delete(value);
             } else {
-                activeFilters[key].add(value);
+                state.filters[key].add(value);
             }
-            applyAllFilters();
+            applyAndSync();
         }
 
-        function setupFilters(sermonsToFilter) {
-            if (!filtersContainer.innerHTML) {
-                filtersContainer.innerHTML = `
-                    <h2 class="visually-hidden">Filter sermons</h2>
-                    <div class="filter-group">
-                        <h3><a href="#" class="accordion-toggle">Search</a></h3>
-                        <div class="accordion-content">
-                            <input type="text" id="text-filter-input" placeholder="Search sermons...">
-                        </div>
-                    </div>
-                    <div class="filter-group"><h3><a href="#" class="accordion-toggle">Series</a></h3><div class="accordion-content"><ul id="series-filter"></ul></div></div>
-                    <div class="filter-group"><h3><a href="#" class="accordion-toggle">Preacher</a></h3><div class="accordion-content"><ul id="preacher-filter"></ul></div></div>
-                    <div class="filter-group"><h3><a href="#" class="accordion-toggle">Year</a></h3><div class="accordion-content"><ul id="year-filter"></ul></div></div>
-                    <div class="filter-group"><h3><a href="#" class="accordion-toggle">Topic</a></h3><div class="accordion-content"><ul id="topic-filter"></ul></div></div>
-                `;
-                document.getElementById('text-filter-input').addEventListener('input', (e) => {
-                    searchTerm = e.target.value;
-                    serverHits = new Set();
-                    applyAllFilters();
-                    clearTimeout(searchTimer);
-                    searchTimer = setTimeout(() => fetchServerSearch(searchTerm), 300);
-                });
-                document.querySelectorAll('.accordion-toggle').forEach(toggle => {
-                    toggle.addEventListener('click', (e) => {
-                        if (window.innerWidth < 768) {
-                            e.preventDefault();
-                            const currentGroup = e.target.closest('.filter-group');
-                            const wasActive = currentGroup.classList.contains('active');
-                            document.querySelectorAll('#filters .filter-group.active').forEach(group => {
-                                group.classList.remove('active');
-                            });
-                            if (!wasActive) {
-                                currentGroup.classList.add('active');
-                            }
-                        }
-                    });
-                });
-            }
-            document.getElementById('text-filter-input').value = searchTerm;
-
-            // --- Series Sorting ---
-            const seriesDates = allSermons.reduce((acc, sermon) => {
-                if (sermon.sermon_series) {
-                    const sermonDate = new Date(sermon.post_date_gmt);
-                    if (!acc[sermon.sermon_series] || sermonDate > acc[sermon.sermon_series]) {
-                        acc[sermon.sermon_series] = sermonDate;
-                    }
-                }
-                return acc;
-            }, {});
-            const series = Object.keys(seriesDates).sort((a, b) => seriesDates[b] - seriesDates[a]);
-
-            // --- Preacher Sorting ---
-            const preacherCounts = allSermons.reduce((counts, sermon) => {
-                if (sermon.preacher) {
-                    counts[sermon.preacher] = (counts[sermon.preacher] || 0) + 1;
-                }
-                return counts;
-            }, {});
-            const preachers = Object.keys(preacherCounts).sort((a, b) => {
-                const countDiff = preacherCounts[b] - preacherCounts[a];
-                if (countDiff !== 0) {
-                    return countDiff;
-                }
-                return a.localeCompare(b); // Alphabetical tie-breaker
-            });
-
-            const years = [...new Set(allSermons.map(s => new Date(s.post_date_gmt).getFullYear()))].filter(y => !isNaN(y)).sort((a, b) => b - a);
-            const topics = [...new Set(allSermons.flatMap(s => s.sermon_topics ? s.sermon_topics.split(',').map(t => t.trim()) : []))].filter(Boolean).sort();
-
-            populateFilterList('series-filter', series, 'sermon_series', sermonsToFilter);
-            populateFilterList('preacher-filter', preachers, 'preacher', sermonsToFilter);
-            populateFilterList('year-filter', years, 'year', sermonsToFilter);
-            populateFilterList('topic-filter', topics, 'sermon_topics', sermonsToFilter);
+        function clearAll() {
+            Object.keys(state.filters).forEach(function (key) { state.filters[key].clear(); });
+            state.query = '';
+            state.serverHits = new Set();
+            state.serverSeq++;
+            els.searchInput.value = '';
+            applyAndSync();
         }
 
-        function populateFilterList(elementId, items, filterKey, sermonsToFilter) {
-            const listEl = document.getElementById(elementId);
-            listEl.innerHTML = '';
-            
-            let availableItems;
-            if (filterKey === 'sermon_topics') {
-                availableItems = new Set(sermonsToFilter.flatMap(s => s.sermon_topics ? s.sermon_topics.split(',').map(t => t.trim()) : []));
-            } else {
-                availableItems = new Set(sermonsToFilter.map(s => filterKey === 'year' ? new Date(s.post_date_gmt).getFullYear() : s[filterKey]));
-            }
-
-            items.forEach(item => {
-                if (availableItems.has(item)) {
-                    const listItem = document.createElement('li');
-                    const link = document.createElement('a');
-                    link.textContent = item;
-                    link.onclick = () => toggleFilter(filterKey, item);
-                    if (activeFilters[filterKey].has(item)) {
-                        link.classList.add('active-filter-link');
-                    }
-                    listItem.appendChild(link);
-                    listEl.appendChild(listItem);
-                }
-            });
-        }
-
-        function displayActiveFilters() {
-            currentFilterDisplay.innerHTML = '';
-            let hasFilters = false;
-            Object.keys(activeFilters).forEach(key => {
-                activeFilters[key].forEach(value => {
-                    hasFilters = true;
-                    const pill = document.createElement('span');
-                    pill.className = 'filter-pill';
-                    pill.textContent = value;
-                    const removeBtn = document.createElement('span');
-                    removeBtn.textContent = ' \u2a2f'; // Multiplication X
-                    removeBtn.className = 'filter-pill-remove';
-                    removeBtn.onclick = () => toggleFilter(key, value);
-                    pill.appendChild(removeBtn);
-                    currentFilterDisplay.appendChild(pill);
-                });
-            });
-
-            if (searchTerm.trim() !== '') {
-                hasFilters = true;
-                const pill = document.createElement('span');
-                pill.className = 'filter-pill';
-                pill.textContent = `Search: "${searchTerm}"`;
-                const removeBtn = document.createElement('span');
-                removeBtn.textContent = ' \u2a2f';
-                removeBtn.className = 'filter-pill-remove';
-                removeBtn.onclick = () => {
-                    searchTerm = '';
-                    applyAllFilters();
-                };
-                pill.appendChild(removeBtn);
-                currentFilterDisplay.appendChild(pill);
-            }
-
-            clearFilterBtn.style.display = hasFilters ? 'inline-block' : 'none';
-        }
-
-        function displaySermons() {
-            sermonList.innerHTML = '';
-            const indexOfLastSermon = currentPage * sermonsPerPage;
-            const indexOfFirstSermon = indexOfLastSermon - sermonsPerPage;
-            const sermonsToDisplay = currentSermons.slice(indexOfFirstSermon, indexOfLastSermon);
-
-            document.getElementById('sermon-count').textContent = `(${currentSermons.length} sermons)`;
-
-            sermonsToDisplay.forEach(sermon => {
-                if (sermon && sermon.title) {
-                    const item = document.createElement('li');
-                    item.className = 'sermon-item d-sm-flex';
-                    const postDate = new Date(sermon.post_date_gmt + 'Z').toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', dateStyle: 'full', timeStyle: 'short' });
-
-                    const hasSermonImage = sermon.image_url && sermon.image_url !== 'https://via.placeholder.com/150';
-                    const hasPreacherImage = sermon.preacher_image_url && sermon.preacher_image_url !== 'https://via.placeholder.com/40';
-
-                    let sermonImageHtml = '';
-                    let textColumnClass = 'col-sm-12';
-
-                    if (hasSermonImage) {
-                        sermonImageHtml = `<div class="col-sm-6"><img src="${sermon.image_url}" alt="${sermon.title}" loading="lazy"/></div>`;
-                        textColumnClass = 'col-sm-6';
-                    }
-
-                    let preacherImageHtml = '';
-                    if (hasPreacherImage) {
-                        preacherImageHtml = `<img alt="${sermon.preacher}" width="40" height="40" class="pull-left mr-2 rounded-circle" loading="lazy" src="${sermon.preacher_image_url}" />`;
-                    }
-
-                    item.innerHTML = `
-                        ${sermonImageHtml}
-                        <div class="${textColumnClass} d-flex flex-column">
-                            <h3 class="h3 mt-0 mb-1">${sermon.title}</h3>
-                            <div class="text-body">${sermon.sermon_series || 'N/A'}</div>
-                            <div class="text-muted">${sermon.bible_passage || 'N/A'}</div>
-                            <div class="d-flex flex-column mt-auto mb-2">
-                                <div class="d-flex align-items-center">
-                                    ${preacherImageHtml}
-                                    <div>
-                                        <div class="text-body line-height-2">${sermon.preacher}</div>
-                                        <div class="text-muted">${postDate}</div>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    `;
-                    item.addEventListener('click', () => showSermonDetail(sermon.originalIndex));
-                    sermonList.appendChild(item);
-                }
-            });
-            renderPagination();
-            goBack();
-        }
-
-        function renderPagination() {
-            const paginationContainer = document.getElementById('pagination');
-            paginationContainer.innerHTML = '';
-            const pageCount = Math.ceil(currentSermons.length / sermonsPerPage);
-            
-            if (pageCount <= 1) {
-                paginationContainer.style.display = 'none';
+        els.facets.addEventListener('click', function (event) {
+            var toggle = event.target.closest('.facet__toggle');
+            if (toggle) {
+                var expanded = toggle.getAttribute('aria-expanded') === 'true';
+                toggle.setAttribute('aria-expanded', String(!expanded));
+                var panel = document.getElementById(toggle.getAttribute('aria-controls'));
+                if (panel) panel.hidden = expanded;
+                state.facetOpen[toggle.getAttribute('data-facet-key')] = !expanded;
                 return;
             }
-            paginationContainer.style.display = 'flex';
+            var option = event.target.closest('.facet__option');
+            if (option) {
+                toggleFilter(option.getAttribute('data-key'), option.getAttribute('data-value'));
+            }
+        });
 
-            const createPageLink = (pageNumber, text) => {
-                const pageLink = document.createElement('a');
-                pageLink.href = '#';
-                pageLink.innerText = text || pageNumber;
-                if (pageNumber === currentPage && !text) {
-                    pageLink.classList.add('active');
-                }
-                
-                const isOutOfBounds = pageNumber < 1 || pageNumber > pageCount;
-                if (isOutOfBounds) {
-                    pageLink.style.visibility = 'hidden';
-                }
+        els.activeChips.addEventListener('click', function (event) {
+            var remove = event.target.closest('.chip__remove');
+            if (!remove) return;
+            var key = remove.getAttribute('data-key');
+            var value = remove.getAttribute('data-value');
+            if (key === 'query') {
+                state.query = '';
+                els.searchInput.value = '';
+                state.serverHits = new Set();
+                state.serverSeq++;
+            } else {
+                state.filters[key].delete(normValue(key, value));
+            }
+            applyAndSync();
+        });
 
-                pageLink.addEventListener('click', (e) => {
-                    e.preventDefault();
-                    if (!isOutOfBounds) {
-                        currentPage = pageNumber;
-                        displaySermons();
-                        sermonListContainer.scrollIntoView({ behavior: 'smooth' });
+        els.clearFilters.addEventListener('click', clearAll);
+
+        els.searchInput.addEventListener('input', handleSearchInput);
+        els.searchForm.addEventListener('submit', function (event) { event.preventDefault(); });
+        els.searchClear.addEventListener('click', function () {
+            state.query = '';
+            els.searchInput.value = '';
+            state.serverHits = new Set();
+            state.serverSeq++;
+            els.searchInput.focus();
+            applyAndSync();
+        });
+
+        els.registerList.addEventListener('click', function (event) {
+            var link = event.target.closest('.entry__link');
+            if (!link) return;
+            event.preventDefault();
+            openDetail(link.getAttribute('data-slug'));
+        });
+
+        els.detailView.addEventListener('click', function (event) {
+            var transcriptToggle = event.target.closest('#transcript-toggle');
+            var relatedLink = event.target.closest('.related__list a');
+            var filterButton = event.target.closest('[data-filter-key]');
+            var back = event.target.closest('#detail-back');
+
+            if (transcriptToggle) {
+                var slug = (window.location.hash || '').replace(/^#/, '');
+                if (slug) toggleTranscript(decodeURIComponent(slug));
+                return;
+            }
+            if (relatedLink) {
+                event.preventDefault();
+                openDetail(relatedLink.getAttribute('data-slug'));
+                return;
+            }
+            if (filterButton) {
+                var key = filterButton.getAttribute('data-filter-key');
+                var value = normValue(key, filterButton.getAttribute('data-filter-value'));
+                state.filters[key].add(value);
+                state.detailOpen = false;
+                els.detailView.hidden = true;
+                els.detailView.innerHTML = '';
+                els.indexView.hidden = false;
+                history.pushState({}, '', window.location.pathname + window.location.search);
+                applyAndSync();
+                els.register.scrollIntoView({ block: 'start' });
+                return;
+            }
+            if (back) {
+                event.preventDefault();
+                if (history.state && history.state.slug) {
+                    history.back();
+                } else {
+                    closeDetail();
+                }
+            }
+        });
+
+        els.brandHome.addEventListener('click', function (event) {
+            event.preventDefault();
+            if (state.detailOpen) {
+                if (history.state && history.state.slug) {
+                    history.back();
+                } else {
+                    closeDetail();
+                }
+                return;
+            }
+            window.scrollTo({ top: 0, behavior: 'smooth' });
+            els.searchInput.focus({ preventScroll: true });
+        });
+
+        document.addEventListener('keydown', function (event) {
+            if (event.key === 'Escape' && state.detailOpen) {
+                if (history.state && history.state.slug) {
+                    history.back();
+                } else {
+                    closeDetail();
+                }
+            }
+        });
+
+        window.addEventListener('popstate', routeFromLocation);
+        window.addEventListener('hashchange', routeFromLocation);
+
+        /* --- Boot ---------------------------------------------------------- */
+        var sermonsVersion = '';
+        var transcriptVersion = '';
+
+        function loadSermons() {
+            return fetch('manifest.json', { cache: 'no-cache' })
+                .then(function (response) { return response.ok ? response.json() : null; })
+                .then(function (manifest) {
+                    if (manifest) {
+                        sermonsVersion = manifest.sermons || '';
+                        transcriptVersion = manifest.transcripts || '';
                     }
+                })
+                .catch(function (error) {
+                    console.warn('Cache manifest unavailable; loading without cache-busting.', error);
+                })
+                .then(function () {
+                    var url = sermonsVersion ? 'sermons.json?v=' + encodeURIComponent(sermonsVersion) : 'sermons.json';
+                    return fetch(url);
+                })
+                .then(function (response) {
+                    if (!response.ok) throw new Error('HTTP ' + response.status);
+                    return response.json();
                 });
-                return pageLink;
-            };
+        }
 
-            const createEllipsis = () => {
-                const ellipsis = document.createElement('span');
-                ellipsis.innerText = '...';
-                return ellipsis;
-            };
+        function boot() {
+            els.registerList.innerHTML = '<div class="notice">Loading the sermon index…</div>';
+            readFilterURL();
 
-            paginationContainer.appendChild(createPageLink(currentPage - 1, 'Prev'));
+            loadSermons().then(function (data) {
+                var ascending = data.slice().sort(function (a, b) { return dateFrom(a) - dateFrom(b); });
+                state.all = ascending.map(function (sermon, index) {
+                    return Object.assign({}, sermon, { acc: index + 1 });
+                });
+                state.all.forEach(function (sermon) { state.bySlug.set(sermon.slug, sermon); });
+                state.loaded = true;
 
-            let startPage = currentPage - 2;
-            let endPage = currentPage + 2;
-
-            if (startPage <= 1) {
-                endPage = Math.min(5, pageCount);
-                startPage = 1;
-            }
-
-            if (endPage >= pageCount) {
-                startPage = Math.max(1, pageCount - 4);
-                endPage = pageCount;
-            }
-
-            if (startPage > 1) {
-                paginationContainer.appendChild(createPageLink(1));
-                if (startPage > 2) {
-                    paginationContainer.appendChild(createEllipsis());
+                var years = state.all.map(yearOf).filter(function (y) { return !Number.isNaN(y); });
+                if (years.length) {
+                    var min = Math.min.apply(null, years);
+                    var max = Math.max.apply(null, years);
+                    els.subtitle.textContent = 'A ' + (max - min + 1) + '-year archive of ' + state.all.length.toLocaleString('en-AU') + ' sermons';
                 }
-            }
 
-            for (let i = startPage; i <= endPage; i++) {
-                paginationContainer.appendChild(createPageLink(i));
-            }
-
-            if (endPage < pageCount) {
-                if (endPage < pageCount - 1) {
-                    paginationContainer.appendChild(createEllipsis());
-                }
-                paginationContainer.appendChild(createPageLink(pageCount));
-            }
-
-            paginationContainer.appendChild(createPageLink(currentPage + 1, 'Next'));
-        }
-        
-        function showSermonDetail(originalIndex) {
-            const sermon = allSermons.find(s => s.originalIndex === originalIndex);
-            sermonListContainer.style.display = 'none';
-            filtersContainer.style.display = 'none';
-            activeFilterContainer.style.display = 'none';
-
-            const postDate = new Date(sermon.post_date_gmt + 'Z').toLocaleString('en-AU', { timeZone: 'Australia/Melbourne', dateStyle: 'full', timeStyle: 'short' });
-            
-            const relatedBySeries = allSermons.filter(s => s.sermon_series === sermon.sermon_series && s.originalIndex !== sermon.originalIndex);
-            const relatedByPreacher = allSermons.filter(s => s.preacher === sermon.preacher && s.originalIndex !== sermon.originalIndex);
-
-            const imageUrl = sermon.image_url;
-            const preacherImageUrl = sermon.preacher_image_url;
-
-            const hasSermonImage = imageUrl && imageUrl !== 'https://via.placeholder.com/300';
-            const hasPreacherImage = preacherImageUrl && preacherImageUrl !== 'https://via.placeholder.com/40';
-
-            let sermonImageHtml = '';
-            let detailTextColumnClass = 'col-sm-12';
-
-            if (hasSermonImage) {
-                sermonImageHtml = `<div class="col-sm-6"><img src="${imageUrl}" alt="${sermon.title}" loading="lazy"/></div>`;
-                detailTextColumnClass = 'col-sm-6';
-            }
-
-            let preacherImageHtml = '';
-            if (hasPreacherImage) {
-                preacherImageHtml = `<img alt="${sermon.preacher}" width="40" height="40" class="pull-left mr-2 rounded-circle" loading="lazy" src="${preacherImageUrl}" />`;
-            }
-
-            const relatedBySeriesHtml = relatedBySeries.length > 0 ? `<div class="col-md-6"><h3>More from this series:</h3><ul>${relatedBySeries.map(s => `<li><a href="#" onclick="showSermonDetail(${s.originalIndex})">${s.title}</a></li>`).join('')}</ul></div>` : '';
-            const relatedByPreacherHtml = relatedByPreacher.length > 0 ? `<div class="col-md-6"><h3>More by this preacher:</h3><ul>${relatedByPreacher.map(s => `<li><a href="#" onclick="showSermonDetail(${s.originalIndex})">${s.title}</a></li>`).join('')}</ul></div>` : '';
-
-            sermonDetail.innerHTML = `
-                <div class="back-button" onclick="displaySermons()">&larr; Back to Sermons</div>
-                <div class="sermon-detail-content row">
-                    ${sermonImageHtml}
-                    <div class="${detailTextColumnClass} d-flex flex-column">
-                        <h2>${sermon.title}</h2>
-                        <div class="meta">
-                            <strong>Date:</strong> ${postDate} <br>
-                            <strong>Series:</strong> ${sermon.sermon_series || 'N/A'}
-                        </div>
-                        <div class="d-flex align-items-center mb-3">
-                            ${preacherImageHtml}
-                            <div>
-                                <div class="text-body line-height-2">${sermon.preacher || 'N/A'}</div>
-                            </div>
-                        </div>
-                        <div class="content">
-                            <p><strong>Bible Passage:</strong> ${sermon.bible_passage ? sermon.bible_passage.split(';').map(p => `<a href="https://ref.ly/${encodeURIComponent(p.trim())};niv?t=biblia" target="_blank" rel="noopener noreferrer">${p.trim()}</a>`).join(', ') : 'N/A'}</p>
-                            <p><strong>Topics:</strong> ${sermon.sermon_topics || 'N/A'}</p>
-                            ${sermon.audio_url ? `<audio controls src="${sermon.audio_url}"></audio>` : ''}
-                        </div>
-                    </div>
-                </div>
-                <hr>
-                <div class="sermon-body">${sermon.content_text || sermon.description || ''}</div>
-                ${sermon.has_transcript ? `
-                <div class="transcript-section">
-                    <button class="transcript-toggle" id="transcript-toggle" onclick="toggleTranscript('${sermon.slug}')">Show Transcript</button>
-                    <div class="transcript-content" id="transcript-content" style="display:none"></div>
-                </div>` : ''}
-                <div class="related-sermons">
-                    <div class="row">
-                        ${relatedBySeriesHtml}
-                        ${relatedByPreacherHtml}
-                    </div>
-                </div>
-            `;
-            sermonDetail.classList.add('active');
-            window.scrollTo(0, 0);
+                recalc();
+                routeFromLocation();
+                syncFilterURL();
+            }).catch(function (error) {
+                console.error('Error loading sermons.json:', error);
+                els.registerList.innerHTML = '<div class="notice notice--error"><strong>Could not load the sermon index</strong>The data file did not load. Please refresh, or try again shortly.</div>';
+                els.statusCount.textContent = '';
+            });
         }
 
-        function goBack() {
-            sermonDetail.classList.remove('active');
-            sermonDetail.innerHTML = '';
-            sermonListContainer.style.display = 'grid';
-            filtersContainer.style.display = 'flex';
-            activeFilterContainer.style.display = 'block';
-        }
-
-        function escapeHtml(text) {
-            const div = document.createElement('div');
-            div.textContent = text == null ? '' : String(text);
-            return div.innerHTML;
-        }
-
-        const transcriptCache = {};
-
-        async function toggleTranscript(slug) {
-            const content = document.getElementById('transcript-content');
-            const btn = document.getElementById('transcript-toggle');
-            if (!content || !btn || !slug) return;
-
-            if (content.getAttribute('data-loaded') !== '1') {
-                if (!transcriptCache[slug]) {
-                    btn.textContent = 'Loading...';
-                    try {
-                        const url = transcriptVersion
-                            ? `transcripts/${encodeURIComponent(slug)}.json?v=${encodeURIComponent(transcriptVersion)}`
-                            : `transcripts/${encodeURIComponent(slug)}.json`;
-                        const res = await fetch(url);
-                        if (!res.ok) throw new Error('no transcript');
-                        const data = await res.json();
-                        transcriptCache[slug] = data.transcript || '';
-                    } catch (e) {
-                        btn.textContent = 'Transcript unavailable';
-                        return;
-                    }
-                }
-                content.innerHTML = escapeHtml(transcriptCache[slug]);
-                content.setAttribute('data-loaded', '1');
-            }
-
-            const hidden = content.style.display === 'none' || !content.style.display;
-            content.style.display = hidden ? 'block' : 'none';
-            btn.textContent = hidden ? 'Hide Transcript' : 'Show Transcript';
-        }
+        boot();
+    })();
     </script>
 
 </body>

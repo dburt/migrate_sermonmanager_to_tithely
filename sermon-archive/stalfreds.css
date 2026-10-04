@@ -279,12 +279,6 @@ input {
     color: var(--surface);
 }
 
-.masthead__subtitle {
-    display: block;
-    font-size: 15px;
-    color: var(--text-subtle-on-dark);
-}
-
 /* --- Search -------------------------------------------------------------- */
 .search {
     position: relative;
@@ -927,10 +921,6 @@ input {
 @media (max-width: 600px) {
     .masthead__inner {
         gap: var(--space-md);
-    }
-
-    .masthead__subtitle {
-        display: none;
     }
 
     .search {

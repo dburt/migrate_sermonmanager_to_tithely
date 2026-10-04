@@ -30,7 +30,6 @@
                 </a>
                 <div class="masthead__titles">
                     <h1 class="display masthead__title">St Alfred's Sermons Archive</h1>
-                    <span class="masthead__subtitle" id="archive-subtitle">A 20-year archive of St Alfred's Anglican Church sermons</span>
                 </div>
             </div>
 
@@ -103,7 +102,6 @@
             searchInput: document.getElementById('search-input'),
             searchClear: document.getElementById('search-clear'),
             detailView: document.getElementById('detail-view'),
-            subtitle: document.getElementById('archive-subtitle'),
             brandHome: document.getElementById('brand-home')
         };
 
@@ -893,13 +891,6 @@
                 state.all = ascending.slice();
                 state.all.forEach(function (sermon) { state.bySlug.set(sermon.slug, sermon); });
                 state.loaded = true;
-
-                var years = state.all.map(yearOf).filter(function (y) { return !Number.isNaN(y); });
-                if (years.length) {
-                    var min = Math.min.apply(null, years);
-                    var max = Math.max.apply(null, years);
-                    els.subtitle.textContent = 'A ' + (max - min + 1) + '-year archive of ' + state.all.length.toLocaleString('en-AU') + ' sermons';
-                }
 
                 recalc();
                 routeFromLocation();

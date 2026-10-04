@@ -187,9 +187,9 @@ and neutral grey.
 - **Field Border Grey** (`#e6e6e6`): the 1px stroke on inputs and dividers.
 - **Muted on Dark** (`#80a8b6`): muted text placed on a Deep Teal surface, for large or
   non-essential text only.
-- **Subtle on Dark** (`#9dc1d1`): the readable step for body-size text on Deep Teal — the
-  archive subtitle and any small print on the header band. `#80a8b6` fails contrast at
-  15px (3.5:1), so small text on teal uses this step (4.7:1).
+- **Subtle on Dark** (`#9dc1d1`): the readable step for body-size text on Deep Teal — any
+  small print on the header band. `#80a8b6` fails contrast at 15px (3.5:1), so small text
+  on teal uses this step (4.7:1).
 
 ### Named Rules
 **The One Accent Rule.** Harbour Cyan is used on ≤10% of any screen. Its scarcity is
@@ -258,13 +258,12 @@ The composition is **the back matter of a hymnal**, in three bands:
 
 1. a thin top links bar (`#f4f4f4`, hairline bottom border) for podcast feed links;
 2. a full-width Deep Teal header band (`#00506c`) carrying the church logo, the archive
-   `h1`, the archive subtitle, and the search field;
+   `h1`, and the search field;
 3. the page body, a `260px minmax(0, 1fr)` two-column grid — a sticky facet rail on the
    left, the register on the right.
 
-The register is one continuous, numbered, year-grouped index (accession number, title,
-passage · series · speaker, date) with sticky year headings and no pagination; it is the
-page. A fixed year rail on the right edge (desktop only) jumps to a year and marks the
+The register is one continuous, year-grouped index (day and month, title, passage ·
+series · speaker) with sticky year headings and no pagination; it is the page. A fixed year rail on the right edge (desktop only) jumps to a year and marks the
 current one. Opening a sermon replaces the register with a 46rem reading view — facts,
 description, audio, transcript, related sermons — and the URL carries the slug hash, so
 every sermon is linkable and Back returns to the exact scroll position.

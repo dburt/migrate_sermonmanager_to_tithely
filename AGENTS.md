@@ -29,10 +29,36 @@ The new toolset is located in the `sermon_manager/` directory. Each tool is a st
 
 ### Next Steps (Prioritized)
 
-1.  **Systematic Review and Fix of `TithelyManager` Instantiation:** Address the recurring `TithelyManager() takes no arguments.` or `AttributeError: 'TithelyManager' object has no attribute 'get_sermon_by_audio_file_size'` errors by ensuring `TithelyManager` is always instantiated correctly with all required arguments (`email`, `password`, `headless`, `_echo`) and that its methods are called properly across all commands.
-2.  **Implement Single-Field Updates (Remaining):** Add `update-speaker`, `update-series`, `update-bible-passage`, `update-description` commands, following the pattern of `update-title` once the blocking issue is resolved.
-3.  **Refine `compare` command:** Improve the diffing output and handle cases where fields might be missing in one of the sermon objects.
-4.  **Implement `search` command:** Develop a command to search local sermon data (e.g., by keywords in title, description, speaker, series).
+**Archive frontend** (`sermon-archive/`):
+
+1.  ~~**Bring Harbour Cyan back into the resting page.**~~ **Done.** Cyan now marks four
+    positions at rest, all on `#00739b` rather than `#0099ce`, because the marks read against
+    the `#f4f4f4` canvas where Harbour Cyan is only 2.96:1: a 3px bar on an applied facet
+    (with a weight change so the bar is never the sole carrier of state), a 2px rule on the
+    sticky year heading, the filter chip's border, and the register row's hover tint
+    (`#eaf7fd`). The masthead was left alone — cyan on `#00506c` is 2.73:1. See "The
+    Accent-Legibility Rule" in `DESIGN.md`; keep "The One Accent Rule" (≤10% of any screen).
+2.  ~~**Fix two measured defects in the normative docs.**~~ **Done.** `DESIGN.md`'s
+    `button-primary` now states that a 15px label needs `#00739b` (5.35:1) because white on
+    `#0099ce` is 3.26:1, and its Facet Rail entry now describes the built page — no cyan
+    fill, no inverted count, and no panel.
+3.  **Fix `::selection`.** White on `#0099ce` is 3.26:1 for selected body text; use a cyan
+    tint with dark text instead.
+4.  **Reduce index DOM weight.** The no-pagination index is one 143,584px document holding 1,489
+    entry rows. Measure paint/layout cost, then try `content-visibility: auto` with
+    `contain-intrinsic-size` on `.year-group`.
+5.  **Reconcile the transcript count.** `PRODUCT.md` says 1,345 transcripts; `sermon-archive/transcripts/`
+    holds 1,412. Fix lines 129 and 146.
+6.  **Note a standing judgement call.** The ghost `.btn` border (`#e6e6e6` on canvas, 1.13:1)
+    is below the 3:1 non-text floor. It is left alone on the judgement that the control is
+    identified by its text label rather than its border. Revisit if an audit requires it.
+
+**Sermon manager** (`sermon_manager/`):
+
+6.  **Systematic Review and Fix of `TithelyManager` Instantiation:** Address the recurring `TithelyManager() takes no arguments.` or `AttributeError: 'TithelyManager' object has no attribute 'get_sermon_by_audio_file_size'` errors by ensuring `TithelyManager` is always instantiated correctly with all required arguments (`email`, `password`, `headless`, `_echo`) and that its methods are called properly across all commands.
+7.  **Implement Single-Field Updates (Remaining):** Add `update-speaker`, `update-series`, `update-bible-passage`, `update-description` commands, following the pattern of `update-title` once the blocking issue is resolved.
+8.  **Refine `compare` command:** Improve the diffing output and handle cases where fields might be missing in one of the sermon objects.
+9.  **Implement `search` command:** Develop a command to search local sermon data (e.g., by keywords in title, description, speaker, series).
 
 ## Design System & Archive Frontend
 

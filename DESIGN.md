@@ -196,6 +196,14 @@ and neutral grey.
 what makes the primary action legible; secondary actions use Deep Teal or a border, not
 more cyan.
 
+**The Accent-Legibility Rule.** Harbour Cyan `#0099ce` is 3.26:1 on white but only
+2.96:1 on the `#f4f4f4` canvas and 2.73:1 on the teal masthead. Any cyan that has to be
+*seen* — a focus ring, a rule, a bar marking state — uses `#00739b` instead (4.86:1 on
+canvas, 5.35:1 on white), or white where the ground is the masthead. Harbour Cyan itself
+is reserved for places where it is not being measured: the search field's focus border
+against the white field inside it, and the cyan glow. Cyan is never the sole carrier of a
+state; weight or a fill always carries it too.
+
 **The No-Invented-Blue Rule.** The archive's own inline CSS must not hardcode
 `#007bff` or `#0000ee` link blue. Links are Deep Teal (`#00506c`); interaction is
 Harbour Cyan. Any blue that isn't the church palette is a defect.
@@ -304,7 +312,9 @@ is no hard-edged, square-cornered element in the interface.
 - **Primary:** Harbour Cyan fill, white label, Montserrat 500, border `#0086b5`, padding
   `10px 16px` (large).
 - **Hover / Focus:** darken to `#00739b`; transition ~200ms `ease-in-out`. Focus uses
-  the cyan ring (`0 0 0 3px #0099ce`).
+  the cyan ring (`0 0 0 3px #0099ce`) on white and neutral grounds. A cyan **label** on
+  a cyan fill is illegal at any size below 19px/600 (3.26:1), so a 15px primary label must
+  use `#00739b` (5.35:1) instead.
 - **Secondary:** Deep Teal fill (`#00506c`, hover `#002a39`), white label — the right
   choice for routine actions so cyan stays scarce.
 - **Tertiary:** Warm Amber (`#f7931d`) — use at most once per screen.
@@ -319,11 +329,16 @@ is no hard-edged, square-cornered element in the interface.
   "Clear all" clears everything and stays visually secondary.
 
 ### Facet Rail
-- **Style:** a sticky white panel, 260px, hairline border, 4px radius, one collapsible
-  section per facet (series, preacher, year, topic).
-- **Options:** a full-width row of Roboto Body text with a right-aligned count in
-  Caption. An applied option is bold with a cyan left accent and its count inverted onto
-  cyan; it is never a recolored link.
+- **Style:** a sticky rail, 260px, hairline borders between sections, one collapsible
+  section per facet (series, preacher, year, topic). It has **no panel of its own** — it
+  sits directly on the canvas, which is why any mark in it must clear 3:1 on `#f4f4f4`.
+- **Options:** a full-width row of Roboto Body text in Deep Teal with a right-aligned count
+  in Caption. An applied option is marked three ways at once: a 3px `#00739b` bar in the
+  left gutter, a weight change to 700, and near-black (`#222222`) text. Never a cyan fill —
+  that would put white text on a ground it cannot legally sit on — and never a recoloured
+  link. The bar is the one place cyan marks position at rest; it borrows `#00739b` rather
+  than Harbour Cyan because the ground is the canvas, and the weight change carries the
+  same state for anyone who cannot see the bar.
 - **Counts:** each option's count reflects what is reachable with the *other* facets
   applied, so the rail narrows as you choose.
 
@@ -338,6 +353,8 @@ is no hard-edged, square-cornered element in the interface.
 - **Style:** white field, 1px `#e6e6e6` stroke, 4px radius, 37px tall, 6px/12px padding,
   15px Roboto, text `#666666`.
 - **Focus:** border shifts to Harbour Cyan plus the cyan glow (see Elevation & Depth).
+  **On the teal masthead the ring is white, not cyan** — cyan on `#00506c` is 2.73:1,
+  below the 3:1 floor for a focus indicator, while white is 8.88:1.
 - **Disabled:** `#f1f1f1` background, reduced opacity.
 
 ### Navigation
@@ -347,10 +364,13 @@ is no hard-edged, square-cornered element in the interface.
   rail is a weight change, never a color swap to cyan.
 
 ### Signature Component — The Register Row
-- The archive's distinctive unit: one row of the index, laid out as accession number ·
-  title · meta · date, with a hairline rule beneath and a faint tonal tint on hover. The
-  accession number is tabular Caption in muted grey. No card, no shadow, no thumbnail —
-  the archive has no imagery and must not imply it is missing.
+- The archive's distinctive unit: one row of the index, laid out as day and month ·
+  title · meta, with a hairline rule beneath and a faint cyan tint on hover. The gutter
+  is tabular Caption in muted grey; the year is carried by the year-group heading rather
+  than repeated on all 1,489 rows, with the full date kept in the `<time>` element for
+  assistive tech. No card, no shadow, no thumbnail — the archive has no imagery and must
+  not imply it is missing. There is no transcript badge on the row: availability is
+  discovered in the reading view, not advertised twice.
 
 ### Signature Component — Sermon Detail & Transcript
 - A sermon row opens into a 46rem reading view: facts as a definition list (Date, Series,

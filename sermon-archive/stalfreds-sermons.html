@@ -141,7 +141,6 @@
             paragraphCache: {}
         };
 
-        var TRANSCRIPT_ICON = '<svg viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M14 3H7a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h10a2 2 0 0 0 2-2V8z"></path><path d="M14 3v5h5"></path><line x1="9" y1="13" x2="15" y2="13"></line><line x1="9" y1="17" x2="13" y2="17"></line></svg>';
 
         function esc(value) {
             return String(value == null ? '' : value)
@@ -160,12 +159,13 @@
             return dateFrom(sermon).getFullYear();
         }
 
-        function fmtShort(sermon) {
+        /* Day and month only: the year is already the year-group heading, so the
+           register does not repeat it on every row. */
+        function fmtDayMonth(sermon) {
             return dateFrom(sermon).toLocaleString('en-AU', {
                 timeZone: 'Australia/Melbourne',
                 day: 'numeric',
-                month: 'short',
-                year: 'numeric'
+                month: 'short'
             });
         }
 
@@ -337,15 +337,14 @@
                     group.items.forEach(function (sermon) {
                         html += '<li class="entry">';
                         html += '<a class="entry__link" href="#' + esc(sermon.slug) + '" data-slug="' + esc(sermon.slug) + '">';
-                        html += '<span class="entry__num" aria-hidden="true">' + esc(sermon.acc) + '</span>';
+                        html += '<time class="entry__date" datetime="' + ymd(sermon) + '">' +
+                            '<span aria-hidden="true">' + esc(fmtDayMonth(sermon)) + '</span>' +
+                            '<span class="visually-hidden">' + esc(fmtLong(sermon)) + '</span>' +
+                            '</time>';
                         html += '<span class="entry__main">';
                         html += '<span class="entry__title">' + esc(sermon.title || 'Untitled') + '</span>';
                         html += metaHtml(sermon);
-                        if (sermon.has_transcript) {
-                            html += '<span class="entry__transcript">' + TRANSCRIPT_ICON + 'Transcript</span>';
-                        }
                         html += '</span>';
-                        html += '<time class="entry__date" datetime="' + ymd(sermon) + '">' + esc(fmtShort(sermon)) + '</time>';
                         html += '</a></li>';
                     });
                     html += '</ol></section>';
@@ -891,9 +890,7 @@
 
             loadSermons().then(function (data) {
                 var ascending = data.slice().sort(function (a, b) { return dateFrom(a) - dateFrom(b); });
-                state.all = ascending.map(function (sermon, index) {
-                    return Object.assign({}, sermon, { acc: index + 1 });
-                });
+                state.all = ascending.slice();
                 state.all.forEach(function (sermon) { state.bySlug.set(sermon.slug, sermon); });
                 state.loaded = true;
 

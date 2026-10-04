@@ -9,6 +9,10 @@
     --primary: #0099ce;
     --primary-hover: #00739b;
     --primary-border: #0086b5;
+    /* Focus ring: #0099ce is 2.96:1 on the #f4f4f4 canvas, under the 3:1 a
+       focus indicator must clear, so the ring borrows --primary-hover
+       (4.86:1 on canvas, 5.35:1 on white). */
+    --focus-ring: #00739b;
     --secondary: #00506c;
     --secondary-hover: #002a39;
     --secondary-border: #003d52;
@@ -135,10 +139,19 @@ input {
     caret-color: var(--primary);
 }
 
+/* The ring colour is set by --focus-ring above; see the token's note for why
+   it is not Harbour Cyan. */
 :focus-visible {
-    outline: 2px solid var(--primary);
+    outline: 2px solid var(--focus-ring);
     outline-offset: 2px;
     border-radius: var(--radius-xs);
+}
+
+/* On the teal masthead no cyan clears 3:1 (#0099ce is 2.73:1, #00739b 1.66:1),
+   so focus inside the masthead is white at 8.88:1. The ring never relies on
+   hue alone to be seen. */
+.masthead :focus-visible {
+    outline-color: var(--surface);
 }
 
 /* --- Type roles ---------------------------------------------------------- */
@@ -308,10 +321,13 @@ input {
     color: var(--text-muted);
 }
 
+/* The ring sits outside the white field, over the teal masthead, so it is
+   white (8.88:1). The border itself stays cyan: it is read against the field
+   inside the control, where cyan is 3.26:1. */
 .search__input:focus {
     outline: none;
     border-color: var(--primary);
-    box-shadow: 0 0 0 3px rgba(0, 153, 206, 0.45);
+    box-shadow: 0 0 0 3px rgba(255, 255, 255, 0.9);
 }
 
 .search__clear {
@@ -434,6 +450,14 @@ input {
 .facet__option[aria-pressed='true'] {
     color: var(--text-strong);
     font-weight: 700;
+    /* The one place cyan marks position at rest: a 3px bar on the applied
+       option. The facet rail has no panel of its own, so the bar reads against
+       the #f4f4f4 canvas where Harbour Cyan is only 2.96:1 — this uses the
+       darker cyan at 4.86:1. The weight change carries the same state for
+       anyone who cannot see the bar. */
+    box-shadow: inset 3px 0 0 var(--primary-hover);
+    margin-left: -8px;
+    padding-left: 10px;
 }
 
 .facet__count {
@@ -484,7 +508,9 @@ input {
     align-items: center;
     gap: 6px;
     padding: 3px 6px 3px 12px;
-    border: 1px solid var(--border);
+    /* The chip's border reads against the canvas around it, so it takes the
+       darker cyan (4.86:1) rather than Harbour Cyan (2.96:1 on canvas). */
+    border: 1px solid var(--primary-hover);
     border-radius: var(--radius-pill);
     background: var(--surface);
     color: var(--text);
@@ -531,7 +557,7 @@ input {
     margin: 0;
     padding: 8px 8px 8px;
     background: var(--canvas);
-    border-bottom: 1px solid var(--border);
+    border-bottom: 2px solid var(--primary-hover);
     color: var(--text-strong);
     font-size: 18px;
     font-weight: 600;
@@ -556,7 +582,7 @@ input {
 
 .entry__link {
     display: grid;
-    grid-template-columns: 3.25rem minmax(0, 1fr) auto;
+    grid-template-columns: 4.5rem minmax(0, 1fr);
     gap: var(--space-xs) var(--space-md);
     align-items: baseline;
     padding: 12px 8px;
@@ -565,14 +591,7 @@ input {
 }
 
 .entry__link:hover {
-    background: var(--surface-muted);
-}
-
-.entry__num {
-    color: var(--text-muted);
-    font-size: 12px;
-    font-variant-numeric: tabular-nums;
-    text-align: right;
+    background: #eaf7fd;
 }
 
 .entry__main {
@@ -605,6 +624,9 @@ input {
     color: var(--border);
 }
 
+/* Day and month in the gutter. The year is the year-group heading, so it is not
+   repeated per row; the full date stays available to assistive tech via the
+   visually-hidden span inside the <time>. */
 .entry__date {
     color: var(--text-muted);
     font-size: 12px;
@@ -612,22 +634,8 @@ input {
     white-space: nowrap;
 }
 
-.entry__transcript {
-    display: inline-flex;
-    align-items: center;
-    gap: 5px;
-    margin-top: 2px;
-    color: var(--text-muted);
-    font-size: 12px;
-}
-
-.entry__transcript svg {
-    width: 13px;
-    height: 13px;
-}
-
-.entry__link:hover .entry__transcript {
-    color: var(--link);
+.entry__link:hover .entry__date {
+    color: var(--primary-hover);
 }
 
 /* --- Empty / loading / error --------------------------------------------- */
@@ -932,11 +940,8 @@ input {
     }
 
     .entry__link {
-        grid-template-columns: 2.75rem minmax(0, 1fr);
-    }
-
-    .entry__date {
-        grid-column: 2;
+        grid-template-columns: 3.75rem minmax(0, 1fr);
+        gap: var(--space-xs) var(--space-sm);
     }
 
     .detail__facts {

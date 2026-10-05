@@ -28,5 +28,9 @@ sermons.db
 search.db
 logs/
 
+# Bulk scrape captures and dev tooling (hundreds of MB; regenerate locally)
+dom_captures/
+url_checker/
+
 # Environment variables
 .env

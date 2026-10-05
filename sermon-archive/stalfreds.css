@@ -113,9 +113,12 @@ img {
 }
 
 /* --- Browser surfaces ---------------------------------------------------- */
+/* Harbour Cyan stays the selection fill -- it is the one place a transient
+   accent is unmistakable -- but white on it is only 3.26:1. Strong Charcoal
+   on the same cyan is 4.88:1, so the fill is unchanged and the text is not. */
 ::selection {
     background: var(--primary);
-    color: var(--surface);
+    color: var(--text-strong);
 }
 
 html {

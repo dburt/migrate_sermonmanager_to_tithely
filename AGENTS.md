@@ -42,8 +42,13 @@ The new toolset is located in the `sermon_manager/` directory. Each tool is a st
     `button-primary` now states that a 15px label needs `#00739b` (5.35:1) because white on
     `#0099ce` is 3.26:1, and its Facet Rail entry now describes the built page — no cyan
     fill, no inverted count, and no panel.
-3.  **Fix `::selection`.** White on `#0099ce` is 3.26:1 for selected body text; use a cyan
-    tint with dark text instead.
+3.  ~~**Fix `::selection`.**~~ **Done by keeping the fill and changing the text.** The
+    suggestion in the original task — a cyan *tint* with dark text — was not needed. Harbour
+    Cyan stays the selection background at full strength; only the selected text changed from
+    white (3.26:1, fails AA) to Strong Charcoal `#222222` (4.88:1, passes AA for normal text).
+    One property, no new token, and "cyan means selection" survives intact. The three other
+    candidates measured 5.35:1 (white on `#00739b`), 12.76:1 and 10.55:1 (charcoal on pale
+    tints) — all legal, all a worse trade than leaving the fill alone.
 4.  **Reduce index DOM weight.** The no-pagination index is one 143,584px document holding 1,489
     entry rows. Measure paint/layout cost, then try `content-visibility: auto` with
     `contain-intrinsic-size` on `.year-group`.

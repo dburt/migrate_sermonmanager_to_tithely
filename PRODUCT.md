@@ -126,7 +126,7 @@ Real content in this repository and deployed:
 - **1,489 sermons** in `sermon-archive/sermons.json`, dated 2005-12-03 → 2026-09-20, spanning
   168 series and 32 preachers, with 1,455 audio URLs. Roughly 1,412 records carry Tithely
   audio, ~43 carry legacy AWS S3 audio.
-- **1,345 machine-generated transcripts** in `sermon-archive/transcripts/<slug>.json`, each
+- **slightly fewer machine-generated transcripts** in `sermon-archive/transcripts/<slug>.json`, each
   with `slug`, `title`, `transcript`, and `word_count`.
 - **Live and verified:** `https://dave.burt.id.au/stalfreds-sermons.html`,
   `podcast_feed.xml`, and a working `search.php` FTS endpoint.
@@ -143,7 +143,7 @@ Real content in this repository and deployed:
   finding aid, not an authoritative text.
 - There are no usage analytics, no audience research, no testimonials, and no benchmarks for
   the archive page. Any claim about how the congregation uses it would be invention.
-- Transcription coverage is incomplete (1,345 of 1,489), and the backlog drains over days.
+- Transcription coverage is incomplete, and the backlog drains over days.
 
 ## Product Principles
 

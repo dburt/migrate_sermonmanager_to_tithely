@@ -47,18 +47,23 @@ The new toolset is located in the `sermon_manager/` directory. Each tool is a st
 4.  **Reduce index DOM weight.** The no-pagination index is one 143,584px document holding 1,489
     entry rows. Measure paint/layout cost, then try `content-visibility: auto` with
     `contain-intrinsic-size` on `.year-group`.
-5.  **Reconcile the transcript count.** `PRODUCT.md` says 1,345 transcripts; `sermon-archive/transcripts/`
-    holds 1,412. Fix lines 129 and 146.
+5.  ~~**Reconcile the transcript count.**~~ **Done by describing coverage, not counting it.**
+    `PRODUCT.md` had 1,345 transcripts while `sermon-archive/transcripts/` held 1,412. The
+    count was never reconcilable in a doc that also says the backlog "drains over days", so
+    both figures were dropped in favour of "slightly fewer" and "coverage is incomplete". Do
+    not reintroduce a hardcoded transcript count — it drifts by dozens per week. The same
+    caution applies to the 1,489 sermon count in that bullet: it is correct today, but it is
+    a snapshot.
 6.  **Note a standing judgement call.** The ghost `.btn` border (`#e6e6e6` on canvas, 1.13:1)
     is below the 3:1 non-text floor. It is left alone on the judgement that the control is
     identified by its text label rather than its border. Revisit if an audit requires it.
 
 **Sermon manager** (`sermon_manager/`):
 
-6.  **Systematic Review and Fix of `TithelyManager` Instantiation:** Address the recurring `TithelyManager() takes no arguments.` or `AttributeError: 'TithelyManager' object has no attribute 'get_sermon_by_audio_file_size'` errors by ensuring `TithelyManager` is always instantiated correctly with all required arguments (`email`, `password`, `headless`, `_echo`) and that its methods are called properly across all commands.
-7.  **Implement Single-Field Updates (Remaining):** Add `update-speaker`, `update-series`, `update-bible-passage`, `update-description` commands, following the pattern of `update-title` once the blocking issue is resolved.
-8.  **Refine `compare` command:** Improve the diffing output and handle cases where fields might be missing in one of the sermon objects.
-9.  **Implement `search` command:** Develop a command to search local sermon data (e.g., by keywords in title, description, speaker, series).
+7.  **Systematic Review and Fix of `TithelyManager` Instantiation:** Address the recurring `TithelyManager() takes no arguments.` or `AttributeError: 'TithelyManager' object has no attribute 'get_sermon_by_audio_file_size'` errors by ensuring `TithelyManager` is always instantiated correctly with all required arguments (`email`, `password`, `headless`, `_echo`) and that its methods are called properly across all commands.
+8.  **Implement Single-Field Updates (Remaining):** Add `update-speaker`, `update-series`, `update-bible-passage`, `update-description` commands, following the pattern of `update-title` once the blocking issue is resolved.
+9.  **Refine `compare` command:** Improve the diffing output and handle cases where fields might be missing in one of the sermon objects.
+10.  **Implement `search` command:** Develop a command to search local sermon data (e.g., by keywords in title, description, speaker, series).
 
 ## Design System & Archive Frontend
 

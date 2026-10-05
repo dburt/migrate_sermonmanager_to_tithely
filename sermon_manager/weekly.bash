@@ -19,10 +19,19 @@
 set -uo pipefail
 
 cd "$(dirname "$0")/.." || exit 1
+
+# mise-managed toolchain; shims aren't on PATH in cron.
+MISE_SHIMS="$HOME/.local/share/mise/shims"
+[ -d "$MISE_SHIMS" ] && export PATH="$MISE_SHIMS:$PATH"
+
 PY="uv run python"
 TS=$(date +%Y%m%d-%H%M%S)
 LOG="logs/weekly-$TS.log"
 mkdir -p logs
+
+# Every stage's output is redirected into $LOG below, so cron's own capture
+# would otherwise stay empty and failures would be silent.
+trap 'echo "weekly pipeline exited rc=$? (full log: $LOG)" >&2' EXIT
 
 {
     echo "=== St Alfred's weekly pipeline started: $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="

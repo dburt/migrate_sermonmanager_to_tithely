@@ -91,8 +91,9 @@ in bytes, which is the cross-source join key; `v_sermons` (the canonical merged 
   it stays simple. Complexity belongs in the pipeline.
 
 **Current architecture facts:** Python 3.13 CLI via `uv`, SQLite (with FTS5) as the single
-source of truth, faster-whisper for transcription, and a public surface of one static HTML file
-with vanilla JS plus one PHP endpoint (`search.php`) that queries the read-only `search.db`.
+source of truth, faster-whisper for transcription, and a public surface of three hand-written
+static files -- `stalfreds-sermons.html`, `stalfreds.css` and `stalfreds.js`, all vanilla and
+unbundled -- plus one PHP endpoint (`search.php`) that queries the read-only `search.db`.
 
 **Known technical constraints:**
 

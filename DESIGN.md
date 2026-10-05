@@ -251,7 +251,8 @@ new size needs a role in the hierarchy above, not a free hand.
 
 Single static page, no build step, and now no imported theme stylesheet: the archive ships
 its own `stalfreds.css`, built from the tokens above, and loads Montserrat / Roboto from
-Google Fonts exactly as the church site does. Content is constrained to a centered 1200px
+Google Fonts exactly as the church site does. Behaviour lives in a separate unbundled
+`stalfreds.js`, loaded with `defer`; the HTML carries no inline script. Content is constrained to a centered 1200px
 container with 20px side padding, sitting on the `#f4f4f4` canvas.
 
 The composition is **the back matter of a hymnal**, in three bands:

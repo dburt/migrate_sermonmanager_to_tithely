@@ -1,0 +1,818 @@
+(function () {
+    'use strict';
+
+    var els = {
+        indexView: document.getElementById('index-view'),
+        register: document.getElementById('register'),
+        registerList: document.getElementById('register-list'),
+        statusCount: document.getElementById('status-count'),
+        activeChips: document.getElementById('active-chips'),
+        clearFilters: document.getElementById('clear-filters'),
+        searchNote: document.getElementById('search-note'),
+        facets: document.getElementById('facets'),
+        searchForm: document.getElementById('search-form'),
+        searchInput: document.getElementById('search-input'),
+        searchClear: document.getElementById('search-clear'),
+        detailView: document.getElementById('detail-view'),
+        brandHome: document.getElementById('brand-home')
+    };
+
+    var FACETS = [
+        { key: 'sermon_series', label: 'Series' },
+        { key: 'preacher', label: 'Preacher' },
+        { key: 'year', label: 'Year' },
+        { key: 'sermon_topics', label: 'Topic' }
+    ];
+
+    var FACET_LABELS = {
+        sermon_series: 'Series',
+        preacher: 'Preacher',
+        year: 'Year',
+        sermon_topics: 'Topic'
+    };
+
+    var state = {
+        all: [],
+        bySlug: new Map(),
+        filtered: [],
+        query: '',
+        filters: { sermon_series: new Set(), preacher: new Set(), year: new Set(), sermon_topics: new Set() },
+        serverHits: new Set(),
+        serverSeq: 0,
+        searchTimer: null,
+        renderTimer: null,
+        loaded: false,
+        detailOpen: false,
+        facetOpen: {},
+        yearObserver: null,
+        lastFocus: null,
+        scrollY: 0,
+        transcripts: {},
+        paragraphCache: {}
+    };
+
+
+    function esc(value) {
+        return String(value == null ? '' : value)
+            .replace(/&/g, '&amp;')
+            .replace(/</g, '&lt;')
+            .replace(/>/g, '&gt;')
+            .replace(/"/g, '&quot;')
+            .replace(/'/g, '&#39;');
+    }
+
+    function dateFrom(sermon) {
+        return new Date(String(sermon.post_date_gmt || '').replace(' ', 'T') + 'Z');
+    }
+
+    function yearOf(sermon) {
+        return dateFrom(sermon).getFullYear();
+    }
+
+    /* Day and month only: the year is already the year-group heading, so the
+       register does not repeat it on every row. */
+    function fmtDayMonth(sermon) {
+        return dateFrom(sermon).toLocaleString('en-AU', {
+            timeZone: 'Australia/Melbourne',
+            day: 'numeric',
+            month: 'short'
+        });
+    }
+
+    function fmtLong(sermon) {
+        return dateFrom(sermon).toLocaleString('en-AU', {
+            timeZone: 'Australia/Melbourne',
+            day: 'numeric',
+            month: 'long',
+            year: 'numeric'
+        });
+    }
+
+    function ymd(sermon) {
+        return dateFrom(sermon).toISOString().slice(0, 10);
+    }
+
+    function topicsOf(sermon) {
+        return (sermon.sermon_topics || '')
+            .split(',')
+            .map(function (t) { return t.trim(); })
+            .filter(Boolean);
+    }
+
+    function normValue(key, value) {
+        return key === 'year' ? Number(value) : value;
+    }
+
+    function byDateDesc(a, b) {
+        return dateFrom(b) - dateFrom(a);
+    }
+
+    /* --- Filtering ----------------------------------------------------- */
+    function matchesQuery(sermon) {
+        if (!state.query.trim()) return true;
+        var words = state.query.toLowerCase().split(/\s+/).filter(Boolean);
+        var haystack = [
+            sermon.title,
+            sermon.sermon_series,
+            sermon.preacher,
+            sermon.bible_passage,
+            sermon.sermon_topics,
+            sermon.content_text
+        ].join(' ').toLowerCase();
+        return words.every(function (word) { return haystack.indexOf(word) !== -1; });
+    }
+
+    function matchesFilters(sermon, ignoreKey) {
+        var f = state.filters;
+        if (ignoreKey !== 'sermon_series' && f.sermon_series.size && !f.sermon_series.has(sermon.sermon_series)) return false;
+        if (ignoreKey !== 'preacher' && f.preacher.size && !f.preacher.has(sermon.preacher)) return false;
+        if (ignoreKey !== 'year' && f.year.size && !f.year.has(yearOf(sermon))) return false;
+        if (ignoreKey !== 'sermon_topics' && f.sermon_topics.size && !topicsOf(sermon).some(function (t) { return f.sermon_topics.has(t); })) return false;
+        return true;
+    }
+
+    function matches(sermon, ignoreKey) {
+        return matchesQuery(sermon) && matchesFilters(sermon, ignoreKey);
+    }
+
+    function computeResults() {
+        var base = state.all.filter(function (s) { return matches(s, null); });
+        if (state.serverHits.size) {
+            var have = new Set(base.map(function (s) { return s.slug; }));
+            state.serverHits.forEach(function (slug) {
+                var record = state.bySlug.get(slug);
+                if (record && !have.has(slug) && matchesFilters(record, null)) {
+                    base.push(record);
+                    have.add(slug);
+                }
+            });
+        }
+        base.sort(byDateDesc);
+        state.filtered = base;
+    }
+
+    /* --- Facets -------------------------------------------------------- */
+    function facetValues(sermon, key) {
+        if (key === 'sermon_topics') return topicsOf(sermon);
+        if (key === 'year') return [yearOf(sermon)];
+        return [sermon[key]];
+    }
+
+    function buildFacetOptions(ignoreKey) {
+        var counts = {};
+        var latest = {};
+        state.all.forEach(function (sermon) {
+            if (!matches(sermon, ignoreKey)) return;
+            facetValues(sermon, ignoreKey).forEach(function (value) {
+                if (value == null || value === '' || Number.isNaN(value)) return;
+                counts[value] = (counts[value] || 0) + 1;
+                var t = dateFrom(sermon).getTime();
+                if (!latest[value] || t > latest[value]) latest[value] = t;
+            });
+        });
+        return Object.keys(counts).sort(function (a, b) {
+            if (ignoreKey === 'year') return Number(b) - Number(a);
+            if (ignoreKey === 'sermon_series') return (latest[b] || 0) - (latest[a] || 0);
+            if (ignoreKey === 'preacher') {
+                if (counts[b] !== counts[a]) return counts[b] - counts[a];
+                return a.localeCompare(b);
+            }
+            return a.localeCompare(b);
+        }).map(function (value) {
+            return { value: value, count: counts[value] };
+        });
+    }
+
+    function renderFacets() {
+        var isDesktop = window.matchMedia('(min-width: 901px)').matches;
+        var html = '';
+        FACETS.forEach(function (facet, index) {
+            var id = 'facet-panel-' + index;
+            var isOpen = state.facetOpen[facet.key];
+            if (isOpen === undefined) isOpen = isDesktop;
+            var expanded = isOpen ? 'true' : 'false';
+            html += '<div class="facet">';
+            html += '<button class="facet__toggle" type="button" aria-expanded="' + expanded + '" aria-controls="' + id + '" data-facet-key="' + esc(facet.key) + '">' + esc(facet.label) + '</button>';
+            html += '<ul class="facet__list" id="' + id + '"' + (isOpen ? '' : ' hidden') + '>';
+            var options = buildFacetOptions(facet.key);
+            if (!options.length) {
+                html += '<li class="facet__empty">No values</li>';
+            } else {
+                options.forEach(function (option) {
+                    var pressed = state.filters[facet.key].has(normValue(facet.key, option.value)) ? 'true' : 'false';
+                    html += '<li><button class="facet__option" type="button" aria-pressed="' + pressed +
+                        '" data-key="' + esc(facet.key) + '" data-value="' + esc(option.value) + '">' +
+                        '<span>' + esc(option.value) + '</span>' +
+                        '<span class="facet__count">' + option.count + '</span></button></li>';
+                });
+            }
+            html += '</ul></div>';
+        });
+        els.facets.innerHTML = html;
+    }
+
+    /* --- Register ------------------------------------------------------ */
+    function metaHtml(sermon) {
+        var parts = [];
+        if (sermon.bible_passage) parts.push(esc(sermon.bible_passage));
+        if (sermon.sermon_series) parts.push(esc(sermon.sermon_series));
+        if (sermon.preacher) parts.push(esc(sermon.preacher));
+        if (!parts.length) return '';
+        return '<span class="entry__meta">' + parts.map(function (p) { return '<span>' + p + '</span>'; }).join('') + '</span>';
+    }
+
+    function renderRegister() {
+        var groups = [];
+        var currentYear = null;
+        var currentList = null;
+
+        state.filtered.forEach(function (sermon) {
+            var year = yearOf(sermon);
+            if (year !== currentYear) {
+                currentYear = year;
+                currentList = [];
+                groups.push({ year: year, items: currentList });
+            }
+            currentList.push(sermon);
+        });
+
+        if (!groups.length) {
+            els.registerList.innerHTML = '<div class="notice"><strong>No sermons match those filters</strong>Try removing a filter or searching for a different word.</div>';
+        } else {
+            var html = '';
+            groups.forEach(function (group) {
+                html += '<section class="year-group" id="year-' + group.year + '">';
+                html += '<h2 class="year-heading">' + group.year + ' <span class="year-heading__count">' + group.items.length + (group.items.length === 1 ? ' sermon' : ' sermons') + '</span></h2>';
+                html += '<ol class="entries">';
+                group.items.forEach(function (sermon) {
+                    html += '<li class="entry">';
+                    html += '<a class="entry__link" href="#' + esc(sermon.slug) + '" data-slug="' + esc(sermon.slug) + '">';
+                    html += '<time class="entry__date" datetime="' + ymd(sermon) + '">' +
+                        '<span aria-hidden="true">' + esc(fmtDayMonth(sermon)) + '</span>' +
+                        '<span class="visually-hidden">' + esc(fmtLong(sermon)) + '</span>' +
+                        '</time>';
+                    html += '<span class="entry__main">';
+                    html += '<span class="entry__title">' + esc(sermon.title || 'Untitled') + '</span>';
+                    html += metaHtml(sermon);
+                    html += '</span>';
+                    html += '</a></li>';
+                });
+                html += '</ol></section>';
+            });
+            els.registerList.innerHTML = html;
+        }
+
+        renderYearRail(groups);
+    }
+
+    var railLinks = {};
+
+    function setActiveYear(year) {
+        Object.keys(railLinks).forEach(function (key) {
+            var isActive = key === year;
+            railLinks[key].classList.toggle('is-active', isActive);
+            if (isActive) railLinks[key].setAttribute('aria-current', 'true');
+            else railLinks[key].removeAttribute('aria-current');
+        });
+    }
+
+    function renderYearRail(groups) {
+        var existing = document.getElementById('year-rail');
+        if (existing) existing.remove();
+        if (state.yearObserver) {
+            state.yearObserver.disconnect();
+            state.yearObserver = null;
+        }
+        railLinks = {};
+        if (groups.length < 2) return;
+
+        var rail = document.createElement('nav');
+        rail.className = 'year-rail';
+        rail.id = 'year-rail';
+        rail.setAttribute('aria-label', 'Jump to year');
+        groups.forEach(function (group) {
+            var link = document.createElement('a');
+            link.href = '#year-' + group.year;
+            link.textContent = group.year;
+            link.addEventListener('click', function (event) {
+                event.preventDefault();
+                var heading = document.getElementById('year-' + group.year);
+                if (heading) {
+                    setActiveYear(group.year);
+                    heading.scrollIntoView({ behavior: 'instant', block: 'start' });
+                }
+            });
+            railLinks[group.year] = link;
+            rail.appendChild(link);
+        });
+        els.indexView.appendChild(rail);
+
+        if (!('IntersectionObserver' in window)) return;
+        state.yearObserver = new IntersectionObserver(function (entries) {
+            entries.forEach(function (entry) {
+                if (entry.isIntersecting) setActiveYear(entry.target.id.replace('year-', ''));
+            });
+        }, { rootMargin: '-56px 0px -70% 0px' });
+        groups.forEach(function (group) {
+            var section = document.getElementById('year-' + group.year);
+            if (section) state.yearObserver.observe(section);
+        });
+        setActiveYear(groups[0].year);
+    }
+
+    function renderStatus() {
+        var count = state.filtered.length;
+        var label = count === 1 ? 'sermon' : 'sermons';
+        var text = '<strong>' + count + '</strong> ' + label;
+        if (state.query.trim()) text += ' matching &ldquo;' + esc(state.query.trim()) + '&rdquo;';
+        els.statusCount.innerHTML = text;
+
+        var chips = [];
+        Object.keys(state.filters).forEach(function (key) {
+            state.filters[key].forEach(function (value) {
+                chips.push({ key: key, value: value, label: FACET_LABELS[key] + ': ' + value });
+            });
+        });
+        if (state.query.trim()) {
+            chips.push({ key: 'query', value: state.query, label: 'Search: ' + state.query });
+        }
+
+        els.activeChips.innerHTML = chips.map(function (chip) {
+            return '<span class="chip">' + esc(chip.label) +
+                '<button class="chip__remove" type="button" aria-label="Remove ' + esc(chip.label) + '" data-key="' + esc(chip.key) + '" data-value="' + esc(chip.value) + '">&times;</button></span>';
+        }).join('');
+
+        els.clearFilters.hidden = chips.length === 0;
+        els.searchClear.hidden = !state.query.trim();
+
+        if (state.serverHits.size) {
+            els.searchNote.hidden = false;
+            els.searchNote.textContent = 'Including matches found inside sermon transcripts.';
+        } else {
+            els.searchNote.hidden = true;
+        }
+    }
+
+    function recalc() {
+        computeResults();
+        renderFacets();
+        renderRegister();
+        renderStatus();
+    }
+
+    function scheduleRecalc() {
+        clearTimeout(state.renderTimer);
+        state.renderTimer = setTimeout(recalc, 120);
+    }
+
+    function applyAndSync() {
+        recalc();
+        syncFilterURL();
+    }
+
+    /* --- URL / routing ------------------------------------------------- */
+    function syncFilterURL() {
+        var params = new URLSearchParams();
+        if (state.query.trim()) params.set('q', state.query.trim());
+        Object.keys(state.filters).forEach(function (key) {
+            var values = Array.from(state.filters[key]);
+            if (values.length) params.set(key, values.join('|'));
+        });
+        var query = params.toString();
+        var url = window.location.pathname + (query ? '?' + query : '') + window.location.hash;
+        history.replaceState(history.state, '', url);
+    }
+
+    function readFilterURL() {
+        var params = new URLSearchParams(window.location.search);
+        state.query = params.get('q') || '';
+        els.searchInput.value = state.query;
+        Object.keys(state.filters).forEach(function (key) {
+            var raw = params.get(key);
+            var values = raw ? raw.split('|').filter(Boolean).map(function (v) { return normValue(key, v); }) : [];
+            state.filters[key] = new Set(values);
+        });
+    }
+
+    function isDetailHash(hash) {
+        var slug = (hash || '').replace(/^#/, '');
+        return slug && state.bySlug.has(slug) ? slug : null;
+    }
+
+    function openDetail(slug, fromPop) {
+        var sermon = state.bySlug.get(slug);
+        if (!sermon) return;
+        if (!state.detailOpen) {
+            state.lastFocus = document.activeElement;
+            state.scrollY = window.scrollY;
+        }
+        state.detailOpen = true;
+        els.indexView.hidden = true;
+        els.detailView.hidden = false;
+        renderDetail(sermon);
+        if (!fromPop) {
+            history.pushState({ slug: slug }, '', '#' + encodeURIComponent(slug));
+        }
+        window.scrollTo(0, 0);
+        var heading = els.detailView.querySelector('h2');
+        if (heading) heading.focus({ preventScroll: true });
+    }
+
+    function closeDetail(fromPop) {
+        state.detailOpen = false;
+        els.detailView.hidden = true;
+        els.detailView.innerHTML = '';
+        els.indexView.hidden = false;
+        if (fromPop) {
+            window.scrollTo(0, state.scrollY || 0);
+        } else {
+            history.replaceState(history.state, '', window.location.pathname + window.location.search);
+            window.scrollTo(0, state.scrollY || 0);
+        }
+        if (state.lastFocus && document.contains(state.lastFocus)) {
+            state.lastFocus.focus({ preventScroll: true });
+        }
+    }
+
+    function routeFromLocation() {
+        var slug = isDetailHash(window.location.hash);
+        if (slug) {
+            openDetail(slug, true);
+        } else if (state.detailOpen) {
+            closeDetail(true);
+        }
+    }
+
+    /* --- Detail rendering ---------------------------------------------- */
+    function scriptureHtml(passage) {
+        if (!passage) return 'N/A';
+        return passage.split(';').map(function (part) {
+            var trimmed = part.trim();
+            if (!trimmed) return '';
+            return '<a href="https://ref.ly/' + encodeURIComponent(trimmed) + ';niv?t=biblia" target="_blank" rel="noopener noreferrer">' + esc(trimmed) + '</a>';
+        }).filter(Boolean).join(', ');
+    }
+
+    function relatedHtml(title, sermons) {
+        if (!sermons.length) return '';
+        return '<div><h3>' + esc(title) + '</h3><ul class="related__list">' +
+            sermons.map(function (s) {
+                return '<li><a href="#' + esc(s.slug) + '" data-slug="' + esc(s.slug) + '">' + esc(s.title) + '</a></li>';
+            }).join('') + '</ul></div>';
+    }
+
+    function renderDetail(sermon) {
+        var related = state.all.filter(function (s) { return s.slug !== sermon.slug; });
+        var bySeries = related.filter(function (s) { return s.sermon_series === sermon.sermon_series; });
+        var byPreacher = related.filter(function (s) { return s.preacher === sermon.preacher; });
+
+        var description = sermon.content_text || sermon.description || '';
+        var facts = '';
+        facts += '<dt>Date</dt><dd>' + esc(fmtLong(sermon)) + '</dd>';
+        if (sermon.sermon_series) {
+            facts += '<dt>Series</dt><dd><button class="fact-link" type="button" data-filter-key="sermon_series" data-filter-value="' + esc(sermon.sermon_series) + '">' + esc(sermon.sermon_series) + '</button></dd>';
+        }
+        if (sermon.preacher) {
+            facts += '<dt>Preacher</dt><dd><button class="fact-link" type="button" data-filter-key="preacher" data-filter-value="' + esc(sermon.preacher) + '">' + esc(sermon.preacher) + '</button></dd>';
+        }
+        if (sermon.bible_passage) {
+            facts += '<dt>Reading</dt><dd>' + scriptureHtml(sermon.bible_passage) + '</dd>';
+        }
+        if (topicsOf(sermon).length) {
+            facts += '<dt>Topics</dt><dd>' + topicsOf(sermon).map(esc).join(', ') + '</dd>';
+        }
+
+        var html = '';
+        html += '<a class="detail__back" href="#" id="detail-back">&larr; All sermons</a>';
+        html += '<div class="detail__head">';
+        html += '<h2 class="headline detail__title" tabindex="-1">' + esc(sermon.title || 'Untitled') + '</h2>';
+        html += '<dl class="detail__facts">' + facts + '</dl>';
+        html += '</div>';
+
+        if (description) {
+            html += '<div class="detail__body"><p class="detail__description">' + esc(description) + '</p></div>';
+        }
+
+        if (sermon.audio_url) {
+            html += '<audio class="detail__audio" controls preload="none" src="' + esc(sermon.audio_url) + '"></audio>';
+        }
+
+        if (sermon.has_transcript) {
+            html += '<div class="transcript">';
+            html += '<button class="btn btn--secondary" id="transcript-toggle" type="button" aria-expanded="false" aria-controls="transcript-content">Show transcript</button>';
+            html += '<div class="transcript__content" id="transcript-content" hidden></div>';
+            html += '<p class="transcript__note">Machine-generated transcript, provided as a finding aid — not an authoritative text.</p>';
+            html += '</div>';
+        }
+
+        if (bySeries.length || byPreacher.length) {
+            html += '<div class="detail__section related">';
+            html += relatedHtml('More from this series', bySeries.slice(0, 8));
+            html += relatedHtml('More by this preacher', byPreacher.slice(0, 8));
+            html += '</div>';
+        }
+
+        if (sermon.permalink || sermon.perm) {
+            html += '<p class="transcript__note"><a href="' + esc(sermon.permalink || sermon.perm) + '" target="_blank" rel="noopener noreferrer">View the original listing on stalfreds.org</a></p>';
+        }
+
+        els.detailView.innerHTML = html;
+    }
+
+    function paragraphize(text) {
+        if (!text) return [];
+        if (/\n\s*\n/.test(text)) {
+            return text.split(/\n\s*\n/).map(function (p) { return p.trim(); }).filter(Boolean);
+        }
+        var sentences = text.match(/[^.!?]+[.!?]+["'\u2019\u201d)]*|\S+$/g) || [text];
+        var paragraphs = [];
+        var current = '';
+        sentences.forEach(function (sentence) {
+            sentence = sentence.trim();
+            if (!sentence) return;
+            if (current && current.length + sentence.length > 700) {
+                paragraphs.push(current);
+                current = sentence;
+            } else {
+                current = current ? current + ' ' + sentence : sentence;
+            }
+        });
+        if (current) paragraphs.push(current);
+        return paragraphs;
+    }
+
+    function renderTranscript(slug, text) {
+        var container = document.getElementById('transcript-content');
+        if (!container) return;
+        var paragraphs = state.paragraphCache[slug] || (state.paragraphCache[slug] = paragraphize(text));
+        container.innerHTML = '';
+        paragraphs.forEach(function (paragraph) {
+            var p = document.createElement('p');
+            p.textContent = paragraph;
+            container.appendChild(p);
+        });
+    }
+
+    function toggleTranscript(slug) {
+        var toggle = document.getElementById('transcript-toggle');
+        var container = document.getElementById('transcript-content');
+        if (!toggle || !container || !slug) return;
+
+        if (container.hidden) {
+            if (!container.getAttribute('data-loaded')) {
+                toggle.textContent = 'Loading…';
+                toggle.disabled = true;
+                loadTranscript(slug).then(function (text) {
+                    renderTranscript(slug, text);
+                    container.setAttribute('data-loaded', '1');
+                    toggle.disabled = false;
+                    container.hidden = false;
+                    toggle.textContent = 'Hide transcript';
+                    toggle.setAttribute('aria-expanded', 'true');
+                }).catch(function () {
+                    toggle.disabled = false;
+                    toggle.textContent = 'Transcript unavailable';
+                });
+            } else {
+                container.hidden = false;
+                toggle.textContent = 'Hide transcript';
+                toggle.setAttribute('aria-expanded', 'true');
+            }
+        } else {
+            container.hidden = true;
+            toggle.textContent = 'Show transcript';
+            toggle.setAttribute('aria-expanded', 'false');
+        }
+    }
+
+    function loadTranscript(slug) {
+        if (state.transcripts[slug]) return Promise.resolve(state.transcripts[slug]);
+        var url = transcriptVersion
+            ? 'transcripts/' + encodeURIComponent(slug) + '.json?v=' + encodeURIComponent(transcriptVersion)
+            : 'transcripts/' + encodeURIComponent(slug) + '.json';
+        return fetch(url).then(function (response) {
+            if (!response.ok) throw new Error('no transcript');
+            return response.json();
+        }).then(function (data) {
+            state.transcripts[slug] = data.transcript || '';
+            return state.transcripts[slug];
+        });
+    }
+
+    /* --- Server search ------------------------------------------------- */
+    function fetchServerSearch(term) {
+        var seq = ++state.serverSeq;
+        if (!term.trim()) {
+            state.serverHits = new Set();
+            return;
+        }
+        fetch('search.php?q=' + encodeURIComponent(term)).then(function (response) {
+            if (seq !== state.serverSeq) return null;
+            if (!response.ok) throw new Error('search unavailable');
+            return response.json();
+        }).then(function (data) {
+            if (!data || seq !== state.serverSeq) return;
+            var hits = data.results || [];
+            state.serverHits = new Set(hits.map(function (h) { return h.slug; }).filter(Boolean));
+            if (state.query.trim()) recalc();
+        }).catch(function (error) {
+            console.error('Server search failed:', error);
+        });
+    }
+
+    /* --- Events -------------------------------------------------------- */
+    function handleSearchInput() {
+        state.query = els.searchInput.value;
+        state.serverHits = new Set();
+        els.searchClear.hidden = !state.query.trim();
+        scheduleRecalc();
+        syncFilterURL();
+        clearTimeout(state.searchTimer);
+        state.searchTimer = setTimeout(function () { fetchServerSearch(state.query); }, 300);
+    }
+
+    function toggleFilter(key, value) {
+        value = normValue(key, value);
+        if (state.filters[key].has(value)) {
+            state.filters[key].delete(value);
+        } else {
+            state.filters[key].add(value);
+        }
+        applyAndSync();
+    }
+
+    function clearAll() {
+        Object.keys(state.filters).forEach(function (key) { state.filters[key].clear(); });
+        state.query = '';
+        state.serverHits = new Set();
+        state.serverSeq++;
+        els.searchInput.value = '';
+        applyAndSync();
+    }
+
+    els.facets.addEventListener('click', function (event) {
+        var toggle = event.target.closest('.facet__toggle');
+        if (toggle) {
+            var expanded = toggle.getAttribute('aria-expanded') === 'true';
+            toggle.setAttribute('aria-expanded', String(!expanded));
+            var panel = document.getElementById(toggle.getAttribute('aria-controls'));
+            if (panel) panel.hidden = expanded;
+            state.facetOpen[toggle.getAttribute('data-facet-key')] = !expanded;
+            return;
+        }
+        var option = event.target.closest('.facet__option');
+        if (option) {
+            toggleFilter(option.getAttribute('data-key'), option.getAttribute('data-value'));
+        }
+    });
+
+    els.activeChips.addEventListener('click', function (event) {
+        var remove = event.target.closest('.chip__remove');
+        if (!remove) return;
+        var key = remove.getAttribute('data-key');
+        var value = remove.getAttribute('data-value');
+        if (key === 'query') {
+            state.query = '';
+            els.searchInput.value = '';
+            state.serverHits = new Set();
+            state.serverSeq++;
+        } else {
+            state.filters[key].delete(normValue(key, value));
+        }
+        applyAndSync();
+    });
+
+    els.clearFilters.addEventListener('click', clearAll);
+
+    els.searchInput.addEventListener('input', handleSearchInput);
+    els.searchForm.addEventListener('submit', function (event) { event.preventDefault(); });
+    els.searchClear.addEventListener('click', function () {
+        state.query = '';
+        els.searchInput.value = '';
+        state.serverHits = new Set();
+        state.serverSeq++;
+        els.searchInput.focus();
+        applyAndSync();
+    });
+
+    els.registerList.addEventListener('click', function (event) {
+        var link = event.target.closest('.entry__link');
+        if (!link) return;
+        event.preventDefault();
+        openDetail(link.getAttribute('data-slug'));
+    });
+
+    els.detailView.addEventListener('click', function (event) {
+        var transcriptToggle = event.target.closest('#transcript-toggle');
+        var relatedLink = event.target.closest('.related__list a');
+        var filterButton = event.target.closest('[data-filter-key]');
+        var back = event.target.closest('#detail-back');
+
+        if (transcriptToggle) {
+            var slug = (window.location.hash || '').replace(/^#/, '');
+            if (slug) toggleTranscript(decodeURIComponent(slug));
+            return;
+        }
+        if (relatedLink) {
+            event.preventDefault();
+            openDetail(relatedLink.getAttribute('data-slug'));
+            return;
+        }
+        if (filterButton) {
+            var key = filterButton.getAttribute('data-filter-key');
+            var value = normValue(key, filterButton.getAttribute('data-filter-value'));
+            state.filters[key].add(value);
+            state.detailOpen = false;
+            els.detailView.hidden = true;
+            els.detailView.innerHTML = '';
+            els.indexView.hidden = false;
+            history.pushState({}, '', window.location.pathname + window.location.search);
+            applyAndSync();
+            els.register.scrollIntoView({ block: 'start' });
+            return;
+        }
+        if (back) {
+            event.preventDefault();
+            if (history.state && history.state.slug) {
+                history.back();
+            } else {
+                closeDetail();
+            }
+        }
+    });
+
+    els.brandHome.addEventListener('click', function (event) {
+        event.preventDefault();
+        if (state.detailOpen) {
+            if (history.state && history.state.slug) {
+                history.back();
+            } else {
+                closeDetail();
+            }
+            return;
+        }
+        window.scrollTo({ top: 0, behavior: 'smooth' });
+        els.searchInput.focus({ preventScroll: true });
+    });
+
+    document.addEventListener('keydown', function (event) {
+        if (event.key === 'Escape' && state.detailOpen) {
+            if (history.state && history.state.slug) {
+                history.back();
+            } else {
+                closeDetail();
+            }
+        }
+    });
+
+    window.addEventListener('popstate', routeFromLocation);
+    window.addEventListener('hashchange', routeFromLocation);
+
+    /* --- Boot ---------------------------------------------------------- */
+    var sermonsVersion = '';
+    var transcriptVersion = '';
+
+    function loadSermons() {
+        return fetch('manifest.json', { cache: 'no-cache' })
+            .then(function (response) { return response.ok ? response.json() : null; })
+            .then(function (manifest) {
+                if (manifest) {
+                    sermonsVersion = manifest.sermons || '';
+                    transcriptVersion = manifest.transcripts || '';
+                }
+            })
+            .catch(function (error) {
+                console.warn('Cache manifest unavailable; loading without cache-busting.', error);
+            })
+            .then(function () {
+                var url = sermonsVersion ? 'sermons.json?v=' + encodeURIComponent(sermonsVersion) : 'sermons.json';
+                return fetch(url);
+            })
+            .then(function (response) {
+                if (!response.ok) throw new Error('HTTP ' + response.status);
+                return response.json();
+            });
+    }
+
+    function boot() {
+        els.registerList.innerHTML = '<div class="notice">Loading the sermon index…</div>';
+        readFilterURL();
+
+        loadSermons().then(function (data) {
+            var ascending = data.slice().sort(function (a, b) { return dateFrom(a) - dateFrom(b); });
+            state.all = ascending.slice();
+            state.all.forEach(function (sermon) { state.bySlug.set(sermon.slug, sermon); });
+            state.loaded = true;
+
+            recalc();
+            routeFromLocation();
+            syncFilterURL();
+        }).catch(function (error) {
+            console.error('Error loading sermons.json:', error);
+            els.registerList.innerHTML = '<div class="notice notice--error"><strong>Could not load the sermon index</strong>The data file did not load. Please refresh, or try again shortly.</div>';
+            els.statusCount.textContent = '';
+        });
+    }
+
+    boot();
+})();

@@ -42,13 +42,8 @@ The new toolset is located in the `sermon_manager/` directory. Each tool is a st
     `button-primary` now states that a 15px label needs `#00739b` (5.35:1) because white on
     `#0099ce` is 3.26:1, and its Facet Rail entry now describes the built page — no cyan
     fill, no inverted count, and no panel.
-3.  ~~**Fix `::selection`.**~~ **Done by keeping the fill and changing the text.** The
-    suggestion in the original task — a cyan *tint* with dark text — was not needed. Harbour
-    Cyan stays the selection background at full strength; only the selected text changed from
-    white (3.26:1, fails AA) to Strong Charcoal `#222222` (4.88:1, passes AA for normal text).
-    One property, no new token, and "cyan means selection" survives intact. The three other
-    candidates measured 5.35:1 (white on `#00739b`), 12.76:1 and 10.55:1 (charcoal on pale
-    tints) — all legal, all a worse trade than leaving the fill alone.
+3.  **Fix `::selection`.** White on `#0099ce` is 3.26:1 for selected body text; use a cyan
+    tint with dark text instead.
 4.  **Reduce index DOM weight.** The no-pagination index is one 143,584px document holding 1,489
     entry rows. Measure paint/layout cost, then try `content-visibility: auto` with
     `contain-intrinsic-size` on `.year-group`.
@@ -72,9 +67,9 @@ The new toolset is located in the `sermon_manager/` directory. Each tool is a st
 
 ## Design System & Archive Frontend
 
-The sermon archive web page (`sermon-archive/stalfreds-sermons.html`) is the public face of this project. It is **hand-maintained**: `sermon_manager.py export` regenerates only `sermons.json`, `manifest.json`, `podcast_feed.xml`, `transcripts/`, and `search.db` — it does **not** touch the HTML or CSS. Edit `stalfreds-sermons.html` and `sermon-archive/stalfreds.css` directly.
+The sermon archive web page (`sermon-archive/stalfreds-sermons.html`) is the public face of this project. It is **hand-maintained**: `sermon_manager.py export` regenerates only `sermons.json`, `manifest.json`, `podcast_feed.xml`, `transcripts/`, and `search.db` — it does **not** touch the HTML, CSS or JS. Edit `stalfreds-sermons.html`, `sermon-archive/stalfreds.css` and `sermon-archive/stalfreds.js` directly.
 
-The page carries **its own stylesheet** (`sermon-archive/stalfreds.css`), built entirely from `DESIGN.md` tokens; the church's hosted theme stylesheet is no longer imported. Google Fonts (Montserrat, Roboto) is still loaded from its CDN, as are the CloudFront logo and favicon. There is no build step and no bundler: the CSS is shipped as written.
+The page carries **its own stylesheet** (`sermon-archive/stalfreds.css`), built entirely from `DESIGN.md` tokens, and **its own script** (`sermon-archive/stalfreds.js`, `defer`, no inline script in the shell); the church's hosted theme stylesheet is no longer imported. Google Fonts (Montserrat, Roboto) is still loaded from its CDN, as are the CloudFront logo and favicon. There is no build step and no bundler: the CSS and JS are shipped as written. Both join `stalfreds-sermons.html` in the `.htaccess` revalidate list and in `deploy.bash`'s rsync list — a new static file must be added to **both**, or it will deploy without revalidating.
 
 The page's shape is the back matter of a hymnal: a faceted, year-grouped index of all sermons (no pagination) that opens into a typeset reading view at `#<slug>`. Filters and the search term live in query params, the open sermon in the hash, so every view is linkable and Back restores scroll position.
 

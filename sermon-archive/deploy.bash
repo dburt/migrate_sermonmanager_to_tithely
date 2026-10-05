@@ -10,6 +10,7 @@ rsync --verbose --copy-links \
     sermon-archive/.htaccess \
     sermon-archive/stalfreds-sermons.html \
     sermon-archive/stalfreds.css \
+    sermon-archive/stalfreds.js \
     sermon-archive/sermons.json \
     sermon-archive/manifest.json \
     sermon-archive/podcast_feed.xml \

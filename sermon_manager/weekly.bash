@@ -30,13 +30,16 @@ LOG="logs/weekly-$TS.log"
 mkdir -p logs
 
 # Every stage's output is redirected into $LOG below, so cron's own capture
-# would otherwise stay empty and failures would be silent.
-trap 'echo "weekly pipeline exited rc=$? (full log: $LOG)" >&2' EXIT
+# would otherwise stay empty and failures would be silent. Keep a separate
+# handle on cron's stderr first: the redirect rebinds fd 2 for the whole block,
+# so a trap writing to >&2 would land in $LOG too and report nothing.
+exec 3>&2
+trap 'echo "weekly pipeline exited rc=$? (full log: $LOG)" >&3' EXIT
 
 {
     echo "=== St Alfred's weekly pipeline started: $(date -u +%Y-%m-%dT%H:%M:%SZ) ==="
     echo "[1/4] sync ..."
-    if ! $PY sermon_manager/sermon_manager.py sync; then
+    if ! $PY sermon_manager/sermon_manager.py sync --headless; then
         echo "STAGE FAILED: sync"; exit 1
     fi
     echo "[2/4] audio mirror ..."

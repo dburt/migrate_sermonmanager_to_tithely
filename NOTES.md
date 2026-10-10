@@ -2,6 +2,10 @@
 
 Synchronize the local `sermons.json` (our canonical local data) with the Tithely sermon database, ensuring data consistency and accuracy.
 
+### Related Plans
+
+- [TRANSCRIPT_QUALITY.md](TRANSCRIPT_QUALITY.md) — findings and sequenced plan for improving transcription quality.
+
 ## Task Summary (2025-09-30)
 
 The primary goal of synchronizing the local sermon data with the Tithely database has been **completed**.
